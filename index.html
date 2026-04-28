@@ -1,0 +1,2431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Character Card Manager</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --bg-alt: #e4d6bf;
+      --panel: rgba(255, 251, 244, 0.88);
+      --panel-strong: #fffaf0;
+      --line: rgba(89, 62, 33, 0.16);
+      --line-strong: rgba(89, 62, 33, 0.32);
+      --text: #2a1d12;
+      --muted: #715941;
+      --accent: #8d3f27;
+      --accent-2: #1a6f63;
+      --accent-soft: rgba(141, 63, 39, 0.12);
+      --success: #17653a;
+      --warn: #9a5d00;
+      --danger: #9b2d30;
+      --shadow: 0 24px 60px rgba(68, 40, 19, 0.15);
+      --radius: 20px;
+      --radius-sm: 12px;
+      --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --sans: "Segoe UI", "Trebuchet MS", sans-serif;
+      --display: Georgia, "Times New Roman", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(255, 244, 213, 0.9), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(121, 168, 156, 0.18), transparent 24%),
+        linear-gradient(180deg, #f8f3eb 0%, #efe3d0 100%);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    body {
+      padding: 24px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 320px minmax(320px, 420px) minmax(360px, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 20px 10px;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-family: var(--display);
+      font-size: 1.12rem;
+      letter-spacing: 0.02em;
+    }
+
+    .panel-body {
+      padding: 0 20px 20px;
+    }
+
+    .masthead {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 18px;
+      padding: 24px 26px;
+      background:
+        linear-gradient(140deg, rgba(255, 250, 240, 0.92), rgba(240, 224, 199, 0.82)),
+        repeating-linear-gradient(
+          -45deg,
+          rgba(141, 63, 39, 0.025),
+          rgba(141, 63, 39, 0.025) 12px,
+          rgba(26, 111, 99, 0.02) 12px,
+          rgba(26, 111, 99, 0.02) 24px
+        );
+    }
+
+    .hero h1 {
+      margin: 0 0 10px;
+      font-family: var(--display);
+      font-size: clamp(2rem, 3vw, 3rem);
+      line-height: 1.02;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 70ch;
+      line-height: 1.5;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-content: start;
+    }
+
+    .stat-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255, 252, 247, 0.9);
+      border: 1px solid var(--line);
+    }
+
+    .stat-card strong {
+      display: block;
+      font-size: 1.7rem;
+      font-family: var(--display);
+    }
+
+    .stat-card span {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      padding: 10px 14px;
+      transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 20px rgba(57, 30, 13, 0.12);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff8f1;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.6);
+      border-color: var(--line);
+      color: var(--text);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--line);
+      color: var(--muted);
+    }
+
+    .btn-good {
+      background: var(--accent-2);
+      color: #f4fff9;
+    }
+
+    .btn-danger {
+      background: rgba(155, 45, 48, 0.1);
+      border-color: rgba(155, 45, 48, 0.24);
+      color: var(--danger);
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .controls-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .tiny {
+      font-size: 0.85rem;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      padding: 11px 13px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--text);
+    }
+
+    .field textarea {
+      min-height: 110px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .inline {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .pill-row,
+    .facet-list,
+    .tag-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill,
+    .facet,
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.75);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .facet {
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease;
+    }
+
+    .facet.active {
+      background: var(--accent-soft);
+      border-color: rgba(141, 63, 39, 0.4);
+    }
+
+    .facet-count {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .card-list {
+      display: grid;
+      gap: 12px;
+      max-height: calc(100vh - 250px);
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .card-item {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.68);
+      cursor: pointer;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+
+    .card-item:hover {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+    }
+
+    .card-item.active {
+      background: linear-gradient(180deg, rgba(141, 63, 39, 0.12), rgba(255, 255, 255, 0.86));
+      border-color: rgba(141, 63, 39, 0.42);
+    }
+
+    .card-item h3 {
+      margin: 0 0 6px;
+      font-size: 1.05rem;
+    }
+
+    .card-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .card-detail {
+      display: grid;
+      gap: 16px;
+      max-height: calc(100vh - 250px);
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .section {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.64);
+    }
+
+    .section h3,
+    .section h4 {
+      margin: 0 0 10px;
+      font-family: var(--display);
+    }
+
+    .section pre {
+      margin: 0;
+      padding: 14px;
+      background: rgba(49, 29, 16, 0.94);
+      color: #f9f3e9;
+      border-radius: 14px;
+      overflow: auto;
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .kv-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .kv {
+      padding: 12px;
+      background: rgba(255, 250, 244, 0.9);
+      border-radius: 14px;
+      border: 1px solid var(--line);
+    }
+
+    .kv strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    .entry-card {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 252, 247, 0.95);
+      display: grid;
+      gap: 10px;
+    }
+
+    .entry-card.accepted {
+      border-color: rgba(23, 101, 58, 0.34);
+      background: rgba(232, 248, 238, 0.88);
+    }
+
+    .entry-card.ignored {
+      opacity: 0.72;
+    }
+
+    .queue-list {
+      display: grid;
+      gap: 10px;
+      max-height: 240px;
+      overflow: auto;
+    }
+
+    .queue-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 0.83rem;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .status-ok {
+      color: var(--success);
+      border-color: rgba(23, 101, 58, 0.28);
+    }
+
+    .status-warn {
+      color: var(--warn);
+      border-color: rgba(154, 93, 0, 0.28);
+    }
+
+    .status-bad {
+      color: var(--danger);
+      border-color: rgba(155, 45, 48, 0.3);
+    }
+
+    .empty {
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px dashed var(--line-strong);
+      color: var(--muted);
+      text-align: center;
+      background: rgba(255, 255, 255, 0.38);
+    }
+
+    .split {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .code {
+      font-family: var(--mono);
+      word-break: break-word;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--line);
+      margin: 14px 0;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 1220px) {
+      .shell {
+        grid-template-columns: 320px 1fr;
+      }
+
+      .detail-panel {
+        grid-column: 1 / -1;
+      }
+
+      .masthead {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 12px;
+      }
+
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .kv-grid,
+      .split,
+      .status-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .card-list,
+      .card-detail {
+        max-height: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="panel masthead">
+      <div class="hero">
+        <h1>Character Card Rolodex</h1>
+        <p>
+          Scan a local folder of SillyTavern-style character cards, organize them with manual and model-assisted metadata,
+          and extract world info into clean text files without leaving the browser.
+        </p>
+        <div class="hero-actions">
+          <button id="pickFolderBtn" class="btn-primary">Open Character Folder</button>
+          <button id="rescanBtn" class="btn-secondary" disabled>Rescan Folder</button>
+          <button id="pickWorldBtn" class="btn-good">Choose World Info Folder</button>
+          <button id="testLlmBtn" class="btn-secondary">Test llama.cpp</button>
+        </div>
+      </div>
+      <div class="status-grid">
+        <div class="stat-card">
+          <strong id="cardCount">0</strong>
+          <span>Indexed cards</span>
+        </div>
+        <div class="stat-card">
+          <strong id="analysisCount">0</strong>
+          <span>Analyzed cards</span>
+        </div>
+        <div class="stat-card">
+          <strong id="worldCount">0</strong>
+          <span>World entries</span>
+        </div>
+        <div class="stat-card">
+          <strong id="queueCount">0</strong>
+          <span>Queue items</span>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Controls</h2>
+        <span id="browserSupportBadge" class="status-badge"></span>
+      </div>
+      <div class="panel-body stack">
+        <div class="controls-grid">
+          <div class="field">
+            <label for="searchInput">Search Cards</label>
+            <input id="searchInput" type="search" placeholder="Name, traits, tags, lore, path...">
+          </div>
+          <div class="split">
+            <div class="field">
+              <label for="sourceFilter">Source Type</label>
+              <select id="sourceFilter">
+                <option value="">All</option>
+                <option value="json">JSON</option>
+                <option value="png">PNG</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="analysisFilter">Analysis Status</label>
+              <select id="analysisFilter">
+                <option value="">Any</option>
+                <option value="analyzed">Analyzed</option>
+                <option value="pending">Not analyzed</option>
+                <option value="warning">Parser warning</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Folder State</h3>
+          <div class="stack tiny muted">
+            <div>Cards: <span id="folderName">Not selected</span></div>
+            <div>World info: <span id="worldFolderName">Not selected</span></div>
+            <div>Last scan: <span id="lastScanValue">Never</span></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Facets</h3>
+          <div class="field">
+            <label>Manual Tags</label>
+            <div id="manualFacetList" class="facet-list"></div>
+          </div>
+          <div class="field">
+            <label>Auto Tags</label>
+            <div id="autoFacetList" class="facet-list"></div>
+          </div>
+          <div class="field">
+            <label>Folders</label>
+            <div id="folderFacetList" class="facet-list"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>llama.cpp Settings</h3>
+          <div class="stack">
+            <div class="field">
+              <label for="llmBaseUrl">Base URL</label>
+              <input id="llmBaseUrl" type="url" placeholder="http://127.0.0.1:8080">
+            </div>
+            <div class="field">
+              <label for="llmModelLabel">Model Label</label>
+              <input id="llmModelLabel" type="text" placeholder="Local llama server">
+            </div>
+            <div class="split">
+              <div class="field">
+                <label for="llmTemperature">Temperature</label>
+                <input id="llmTemperature" type="number" min="0" max="2" step="0.1">
+              </div>
+              <div class="field">
+                <label for="llmTopP">Top P</label>
+                <input id="llmTopP" type="number" min="0" max="1" step="0.05">
+              </div>
+            </div>
+            <div class="split">
+              <div class="field">
+                <label for="llmTimeout">Timeout (ms)</label>
+                <input id="llmTimeout" type="number" min="1000" step="1000">
+              </div>
+              <div class="field">
+                <label for="llmEndpoint">Endpoint Path</label>
+                <input id="llmEndpoint" type="text" placeholder="/v1/chat/completions">
+              </div>
+            </div>
+            <div class="toolbar">
+              <button id="saveSettingsBtn" class="btn-secondary">Save Settings</button>
+              <button id="resetPromptsBtn" class="btn-ghost">Reset Prompts</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Prompt Templates</h3>
+          <div class="stack">
+            <div class="field">
+              <label for="analysisPrompt">Organizer Prompt</label>
+              <textarea id="analysisPrompt"></textarea>
+            </div>
+            <div class="field">
+              <label for="worldPrompt">World Info Prompt</label>
+              <textarea id="worldPrompt"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Queue</h3>
+          <div class="toolbar">
+            <button id="analyzeAllBtn" class="btn-primary" disabled>Analyze All</button>
+            <button id="stopQueueBtn" class="btn-danger" disabled>Stop Queue</button>
+          </div>
+          <div class="divider"></div>
+          <div id="queueList" class="queue-list"></div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Rolodex</h2>
+        <span id="visibleCount" class="muted tiny">0 visible</span>
+      </div>
+      <div class="panel-body">
+        <div id="cardList" class="card-list"></div>
+      </div>
+    </section>
+
+    <section class="panel detail-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Card Details</h2>
+        <div class="toolbar">
+          <button id="analyzeSelectedBtn" class="btn-primary" disabled>Analyze Selected</button>
+          <button id="extractWorldBtn" class="btn-good" disabled>Extract World Info</button>
+          <button id="exportAcceptedBtn" class="btn-secondary" disabled>Export Accepted Entries</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="cardDetail" class="card-detail">
+          <div class="empty">Choose a card after scanning a folder to inspect its metadata, tags, analysis, and world info candidates.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <input id="folderInput" class="hidden" type="file" webkitdirectory multiple>
+
+  <script>
+    const STORAGE_KEY = "character-card-manager-v1";
+
+    const DEFAULT_ANALYSIS_PROMPT = `You are organizing a roleplay character card library.
+Return valid JSON only with this shape:
+{
+  "summary": "short summary",
+  "suggestedTags": ["tag"],
+  "categories": ["category"],
+  "inferredAttributes": {
+    "tone": "string",
+    "genre": "string"
+  },
+  "entities": ["entity"],
+  "extractionNotes": ["note"]
+}
+
+Rules:
+- Use short lowercase tags where possible.
+- Do not invent unsupported lore.
+- If something is unknown, use empty arrays or omit optional fields.
+- Base your answer only on the supplied card content.`;
+
+    const DEFAULT_WORLD_PROMPT = `You are extracting reusable world information from a roleplay character card.
+Return valid JSON only with this shape:
+{
+  "entries": [
+    {
+      "title": "entry title",
+      "content": "concise world info entry",
+      "keywords": ["keyword"],
+      "confidence": 0.0,
+      "rationale": "short reason tied to card content"
+    }
+  ]
+}
+
+Rules:
+- Only create entries that could help another card or scenario.
+- Prefer places, factions, customs, powers, timelines, organizations, species, or notable lore.
+- Skip purely personal trivia unless it matters to the wider setting.
+- Confidence must be between 0 and 1.`;
+
+    const state = {
+      cards: [],
+      filteredCards: [],
+      selectedCardId: null,
+      handles: {
+        cardFolder: null,
+        worldFolder: null
+      },
+      importedFiles: [],
+      folderMode: "none",
+      settings: loadInitialSettings(),
+      queue: [],
+      queueActive: false,
+      stopRequested: false,
+      activeFilters: {
+        search: "",
+        sourceType: "",
+        analysisStatus: "",
+        manualTag: "",
+        autoTag: "",
+        folder: ""
+      },
+      uiMessage: ""
+    };
+
+    const els = {};
+
+    document.addEventListener("DOMContentLoaded", () => {
+      bindElements();
+      loadSettingsIntoUi();
+      updateBrowserSupport();
+      bindEvents();
+      applyFilters();
+      renderAll();
+    });
+
+    function bindElements() {
+      const ids = [
+        "pickFolderBtn", "rescanBtn", "pickWorldBtn", "testLlmBtn", "cardCount", "analysisCount", "worldCount",
+        "queueCount", "browserSupportBadge", "searchInput", "sourceFilter", "analysisFilter", "folderName",
+        "worldFolderName", "lastScanValue", "manualFacetList", "autoFacetList", "folderFacetList", "llmBaseUrl",
+        "llmModelLabel", "llmTemperature", "llmTopP", "llmTimeout", "llmEndpoint", "saveSettingsBtn",
+        "resetPromptsBtn", "analysisPrompt", "worldPrompt", "queueList", "analyzeAllBtn", "stopQueueBtn",
+        "visibleCount", "cardList", "analyzeSelectedBtn", "extractWorldBtn", "exportAcceptedBtn", "cardDetail",
+        "folderInput"
+      ];
+      for (const id of ids) {
+        els[id] = document.getElementById(id);
+      }
+    }
+
+    function bindEvents() {
+      els.pickFolderBtn.addEventListener("click", pickCardFolder);
+      els.rescanBtn.addEventListener("click", () => scanFolder(true));
+      els.pickWorldBtn.addEventListener("click", pickWorldFolder);
+      els.testLlmBtn.addEventListener("click", testLlmConnection);
+      els.saveSettingsBtn.addEventListener("click", saveSettingsFromUi);
+      els.resetPromptsBtn.addEventListener("click", resetPromptDefaults);
+      els.searchInput.addEventListener("input", (event) => {
+        state.activeFilters.search = event.target.value.trim().toLowerCase();
+        applyFilters();
+      });
+      els.sourceFilter.addEventListener("change", (event) => {
+        state.activeFilters.sourceType = event.target.value;
+        applyFilters();
+      });
+      els.analysisFilter.addEventListener("change", (event) => {
+        state.activeFilters.analysisStatus = event.target.value;
+        applyFilters();
+      });
+      els.analyzeAllBtn.addEventListener("click", analyzeAllCards);
+      els.stopQueueBtn.addEventListener("click", () => {
+        state.stopRequested = true;
+        renderQueue();
+      });
+      els.analyzeSelectedBtn.addEventListener("click", analyzeSelectedCard);
+      els.extractWorldBtn.addEventListener("click", extractWorldInfoForSelected);
+      els.exportAcceptedBtn.addEventListener("click", exportAcceptedWorldEntries);
+      els.folderInput.addEventListener("change", importFolderFromInput);
+    }
+
+    function loadInitialSettings() {
+      const saved = safeJsonParse(localStorage.getItem(STORAGE_KEY), {}) || {};
+      return {
+        llmBaseUrl: saved.settings?.llmBaseUrl || "http://127.0.0.1:8080",
+        llmModelLabel: saved.settings?.llmModelLabel || "Local llama.cpp server",
+        llmTemperature: Number(saved.settings?.llmTemperature ?? 0.2),
+        llmTopP: Number(saved.settings?.llmTopP ?? 0.9),
+        llmTimeout: Number(saved.settings?.llmTimeout ?? 60000),
+        llmEndpoint: saved.settings?.llmEndpoint || "/v1/chat/completions",
+        analysisPrompt: saved.settings?.analysisPrompt || DEFAULT_ANALYSIS_PROMPT,
+        worldPrompt: saved.settings?.worldPrompt || DEFAULT_WORLD_PROMPT,
+        cache: saved.cache || {},
+        lastFolderName: saved.lastFolderName || "",
+        lastWorldFolderName: saved.lastWorldFolderName || ""
+      };
+    }
+
+    function savePersistedState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        settings: {
+          llmBaseUrl: state.settings.llmBaseUrl,
+          llmModelLabel: state.settings.llmModelLabel,
+          llmTemperature: state.settings.llmTemperature,
+          llmTopP: state.settings.llmTopP,
+          llmTimeout: state.settings.llmTimeout,
+          llmEndpoint: state.settings.llmEndpoint,
+          analysisPrompt: state.settings.analysisPrompt,
+          worldPrompt: state.settings.worldPrompt
+        },
+        cache: state.settings.cache,
+        lastFolderName: state.handles.cardFolder?.name || state.settings.lastFolderName || "",
+        lastWorldFolderName: state.handles.worldFolder?.name || state.settings.lastWorldFolderName || ""
+      }));
+    }
+
+    function loadSettingsIntoUi() {
+      els.llmBaseUrl.value = state.settings.llmBaseUrl;
+      els.llmModelLabel.value = state.settings.llmModelLabel;
+      els.llmTemperature.value = String(state.settings.llmTemperature);
+      els.llmTopP.value = String(state.settings.llmTopP);
+      els.llmTimeout.value = String(state.settings.llmTimeout);
+      els.llmEndpoint.value = state.settings.llmEndpoint;
+      els.analysisPrompt.value = state.settings.analysisPrompt;
+      els.worldPrompt.value = state.settings.worldPrompt;
+      els.folderName.textContent = state.settings.lastFolderName || "Not selected";
+      els.worldFolderName.textContent = state.settings.lastWorldFolderName || "Not selected";
+    }
+
+    function saveSettingsFromUi() {
+      state.settings.llmBaseUrl = els.llmBaseUrl.value.trim().replace(/\/+$/, "");
+      state.settings.llmModelLabel = els.llmModelLabel.value.trim() || "Local llama.cpp server";
+      state.settings.llmTemperature = clampNumber(els.llmTemperature.value, 0, 2, 0.2);
+      state.settings.llmTopP = clampNumber(els.llmTopP.value, 0, 1, 0.9);
+      state.settings.llmTimeout = Math.max(1000, Number(els.llmTimeout.value) || 60000);
+      state.settings.llmEndpoint = normalizeEndpoint(els.llmEndpoint.value);
+      state.settings.analysisPrompt = els.analysisPrompt.value.trim() || DEFAULT_ANALYSIS_PROMPT;
+      state.settings.worldPrompt = els.worldPrompt.value.trim() || DEFAULT_WORLD_PROMPT;
+      savePersistedState();
+      toast("Settings saved locally.");
+    }
+
+    function resetPromptDefaults() {
+      els.analysisPrompt.value = DEFAULT_ANALYSIS_PROMPT;
+      els.worldPrompt.value = DEFAULT_WORLD_PROMPT;
+      saveSettingsFromUi();
+    }
+
+    function updateBrowserSupport() {
+      const support = getRuntimeSupport();
+      els.browserSupportBadge.textContent = support.message;
+      els.browserSupportBadge.className = `status-badge ${support.statusClass}`;
+      els.pickFolderBtn.disabled = !support.canImportFolder;
+      els.pickWorldBtn.disabled = !support.canPickWorldFolder;
+    }
+
+    async function pickCardFolder() {
+      const support = getRuntimeSupport();
+      if (support.canUseFolderApi) {
+        try {
+          const handle = await window.showDirectoryPicker({ mode: "read" });
+          state.handles.cardFolder = handle;
+          state.importedFiles = [];
+          state.folderMode = "handle";
+          state.settings.lastFolderName = handle.name;
+          savePersistedState();
+          els.folderName.textContent = handle.name;
+          els.rescanBtn.disabled = false;
+          await scanFolder(false);
+        } catch (error) {
+          if (error?.name !== "AbortError") {
+            toast(`Unable to open folder: ${error.message}`, true);
+          }
+        }
+        return;
+      }
+      if (support.canUseDirectoryUpload) {
+        els.folderInput.value = "";
+        els.folderInput.click();
+        return;
+      }
+      toast("This browser cannot import folders for character scanning.", true);
+    }
+
+    async function importFolderFromInput(event) {
+      const files = Array.from(event.target.files || []);
+      if (!files.length) {
+        return;
+      }
+      state.handles.cardFolder = null;
+      state.importedFiles = files;
+      state.folderMode = "upload";
+      const root = inferRootFolderName(files);
+      state.settings.lastFolderName = root;
+      savePersistedState();
+      els.folderName.textContent = `${root} (imported)`;
+      els.rescanBtn.disabled = false;
+      try {
+        await scanFolder(false);
+      } finally {
+        event.target.value = "";
+      }
+    }
+
+    function inferRootFolderName(files) {
+      const first = files[0];
+      const relative = String(first.webkitRelativePath || "");
+      if (!relative) {
+        return "Imported folder";
+      }
+      return relative.split("/")[0] || "Imported folder";
+    }
+
+    async function pickWorldFolder() {
+      const support = getRuntimeSupport();
+      if (!support.canPickWorldFolder) {
+        toast("Direct world folder access is not available in this browser. Exports will download files instead.", true);
+        return;
+      }
+      try {
+        const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+        state.handles.worldFolder = handle;
+        state.settings.lastWorldFolderName = handle.name;
+        savePersistedState();
+        els.worldFolderName.textContent = handle.name;
+        renderAll();
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          toast(`Unable to choose world info folder: ${error.message}`, true);
+        }
+      }
+    }
+
+    async function scanFolder(isRescan) {
+      if (!state.handles.cardFolder && !state.importedFiles.length) {
+        toast("Choose a character folder first.", true);
+        return;
+      }
+      const startedAt = Date.now();
+      try {
+        setBusy(true, isRescan ? "Rescanning folder..." : "Scanning folder...");
+        const scanned = [];
+        if (state.handles.cardFolder) {
+          for await (const entry of walkDirectory(state.handles.cardFolder)) {
+            if (entry.kind !== "file") {
+              continue;
+            }
+            const ext = getFileExtension(entry.path);
+            if (!["json", "png"].includes(ext)) {
+              continue;
+            }
+            try {
+              const file = await entry.handle.getFile();
+              const card = await parseCardFile(file, entry.path);
+              if (card) {
+                hydrateCardFromCache(card);
+                scanned.push(card);
+              }
+            } catch (error) {
+              scanned.push(createErrorCard(entry.path, ext, error));
+            }
+          }
+        } else {
+          for (const file of state.importedFiles) {
+            const relativePath = file.webkitRelativePath || file.name;
+            const ext = getFileExtension(relativePath);
+            if (!["json", "png"].includes(ext)) {
+              continue;
+            }
+            try {
+              const card = await parseCardFile(file, relativePath);
+              if (card) {
+                hydrateCardFromCache(card);
+                scanned.push(card);
+              }
+            } catch (error) {
+              scanned.push(createErrorCard(relativePath, ext, error));
+            }
+          }
+        }
+
+        state.cards = scanned.sort((a, b) => a.displayName.localeCompare(b.displayName));
+        state.selectedCardId = state.cards[0]?.id || null;
+        state.settings.lastScan = startedAt;
+        applyFilters();
+        savePersistedState();
+        toast(`Scanned ${state.cards.length} card file${state.cards.length === 1 ? "" : "s"}.`);
+      } catch (error) {
+        toast(`Scan failed: ${error.message}`, true);
+      } finally {
+        setBusy(false);
+        els.lastScanValue.textContent = new Date().toLocaleString();
+      }
+    }
+
+    async function* walkDirectory(rootHandle, prefix = "") {
+      for await (const [name, handle] of rootHandle.entries()) {
+        const path = prefix ? `${prefix}/${name}` : name;
+        if (handle.kind === "directory") {
+          yield* walkDirectory(handle, path);
+        } else {
+          yield { path, handle, kind: "file" };
+        }
+      }
+    }
+
+    async function parseCardFile(file, relativePath) {
+      const sourceType = getFileExtension(file.name);
+      if (sourceType === "json") {
+        const text = await file.text();
+        const raw = JSON.parse(text);
+        return normalizeCardRecord({
+          raw,
+          sourceType,
+          relativePath,
+          fileName: file.name
+        });
+      }
+      if (sourceType === "png") {
+        const buffer = await file.arrayBuffer();
+        const pngMeta = await parsePngMetadata(buffer);
+        const raw = extractCardJsonFromMetadata(pngMeta);
+        return normalizeCardRecord({
+          raw,
+          sourceType,
+          relativePath,
+          fileName: file.name,
+          pngMetadata: pngMeta
+        });
+      }
+      return null;
+    }
+
+    function createErrorCard(relativePath, sourceType, error) {
+      return {
+        id: `error-${hashString(relativePath)}`,
+        displayName: relativePath.split("/").pop(),
+        sourcePath: relativePath,
+        sourceType,
+        extracted: {
+          name: relativePath.split("/").pop(),
+          description: "",
+          personality: "",
+          scenario: "",
+          firstMessage: "",
+          examples: "",
+          creatorNotes: "",
+          systemPrompt: "",
+          postHistoryInstructions: "",
+          tags: [],
+          worldBook: [],
+          rawMeta: {}
+        },
+        manual: {
+          tags: [],
+          attributes: {},
+          notes: ""
+        },
+        derived: {
+          keywordBag: [],
+          folder: relativePath.includes("/") ? relativePath.slice(0, relativePath.lastIndexOf("/")) : ".",
+          stats: { contentLength: 0, worldBookCount: 0 },
+          parserConfidence: "error",
+          warnings: [String(error.message || error)]
+        },
+        analysis: emptyAnalysisState(),
+        lastAnalyzedAt: "",
+        lastUpdatedAt: new Date().toISOString(),
+        raw: null
+      };
+    }
+
+    function normalizeCardRecord({ raw, sourceType, relativePath, fileName, pngMetadata = null }) {
+      const base = findLikelyCardPayload(raw);
+      const data = base.data && typeof base.data === "object" ? base.data : base;
+      const name = firstText([
+        data.name,
+        base.name,
+        data.character,
+        fileName.replace(/\.[^.]+$/, "")
+      ]) || "Untitled Card";
+
+      const description = firstText([
+        data.description,
+        data.description_long,
+        data.persona,
+        data.char_persona,
+        base.description
+      ]);
+      const personality = firstText([
+        data.personality,
+        data.char_personality,
+        data.traits
+      ]);
+      const scenario = firstText([data.scenario, data.world_scenario, data.setting]);
+      const firstMessage = firstText([data.first_mes, data.first_message, data.greeting]);
+      const examples = firstText([data.mes_example, data.example_dialogue, data.example_messages]);
+      const creatorNotes = firstText([data.creator_notes, data.creatorNotes, base.creator_notes]);
+      const systemPrompt = firstText([data.system_prompt, data.systemPrompt]);
+      const postHistoryInstructions = firstText([data.post_history_instructions, data.postHistoryInstructions]);
+      const tags = collectStringArray([
+        data.tags,
+        data.character_tags,
+        base.tags,
+        extractTagsFromText(description),
+        extractTagsFromText(personality)
+      ]);
+      const worldBook = extractWorldBookEntries(base, data);
+      const keywordBag = buildKeywordBag({
+        name,
+        description,
+        personality,
+        scenario,
+        firstMessage,
+        examples,
+        tags,
+        worldBook
+      });
+      const warnings = [];
+      if (!raw || typeof raw !== "object") {
+        warnings.push("Card payload was not an object.");
+      }
+      if (!description && !personality && !scenario) {
+        warnings.push("Card had very little descriptive text.");
+      }
+      if (sourceType === "png" && !pngMetadata?.rawTextKeys?.length) {
+        warnings.push("PNG contained no readable text chunks.");
+      }
+
+      return {
+        id: hashCardIdentity(relativePath, name, sourceType, description),
+        displayName: name,
+        sourcePath: relativePath,
+        sourceType,
+        extracted: {
+          name,
+          description,
+          personality,
+          scenario,
+          firstMessage,
+          examples,
+          creatorNotes,
+          systemPrompt,
+          postHistoryInstructions,
+          tags,
+          worldBook,
+          rawMeta: {
+            spec: firstText([base.spec, data.spec, base.spec_version]),
+            creator: firstText([data.creator, base.creator, data.creator_name]),
+            characterVersion: firstText([data.character_version, data.version]),
+            pngTextKeys: pngMetadata?.rawTextKeys || [],
+            rawTopLevelKeys: Object.keys(base || {}),
+            rawDataKeys: Object.keys(data || {})
+          }
+        },
+        manual: {
+          tags: [],
+          attributes: {},
+          notes: ""
+        },
+        derived: {
+          keywordBag,
+          folder: relativePath.includes("/") ? relativePath.slice(0, relativePath.lastIndexOf("/")) : ".",
+          stats: {
+            contentLength: [description, personality, scenario, firstMessage, examples].join(" ").length,
+            worldBookCount: worldBook.length
+          },
+          parserConfidence: warnings.length ? "warning" : "good",
+          warnings
+        },
+        analysis: emptyAnalysisState(),
+        lastAnalyzedAt: "",
+        lastUpdatedAt: new Date().toISOString(),
+        raw
+      };
+    }
+
+    function hydrateCardFromCache(card) {
+      const cached = state.settings.cache[card.id];
+      if (!cached) {
+        return;
+      }
+      card.manual = {
+        tags: Array.isArray(cached.manual?.tags) ? [...cached.manual.tags] : [],
+        attributes: { ...(cached.manual?.attributes || {}) },
+        notes: cached.manual?.notes || ""
+      };
+      card.analysis = {
+        ...emptyAnalysisState(),
+        ...(cached.analysis || {})
+      };
+      card.lastAnalyzedAt = cached.lastAnalyzedAt || "";
+      card.lastUpdatedAt = cached.lastUpdatedAt || card.lastUpdatedAt;
+    }
+
+    function persistCard(card) {
+      state.settings.cache[card.id] = {
+        manual: structuredClone(card.manual),
+        analysis: structuredClone(card.analysis),
+        lastAnalyzedAt: card.lastAnalyzedAt,
+        lastUpdatedAt: new Date().toISOString()
+      };
+      savePersistedState();
+    }
+
+    function emptyAnalysisState() {
+      return {
+        status: "idle",
+        summary: "",
+        suggestedTags: [],
+        categories: [],
+        inferredAttributes: {},
+        entities: [],
+        extractionNotes: [],
+        worldEntries: [],
+        lastError: ""
+      };
+    }
+
+    function findLikelyCardPayload(raw) {
+      if (!raw || typeof raw !== "object") {
+        return raw;
+      }
+      if (raw.spec && raw.data) {
+        return raw;
+      }
+      if (raw.character && typeof raw.character === "object") {
+        return raw.character;
+      }
+      if (raw.card && typeof raw.card === "object") {
+        return raw.card;
+      }
+      return raw;
+    }
+
+    function extractWorldBookEntries(base, data) {
+      const candidates = [
+        data.character_book?.entries,
+        base.character_book?.entries,
+        data.worldbook?.entries,
+        data.lorebook?.entries,
+        base.worldbook?.entries,
+        base.lorebook?.entries
+      ];
+      const entries = [];
+      for (const candidate of candidates) {
+        if (!candidate) {
+          continue;
+        }
+        if (Array.isArray(candidate)) {
+          for (const entry of candidate) {
+            entries.push(normalizeWorldBookEntry(entry));
+          }
+        } else if (typeof candidate === "object") {
+          for (const entry of Object.values(candidate)) {
+            entries.push(normalizeWorldBookEntry(entry));
+          }
+        }
+      }
+      return entries.filter((entry) => entry.title || entry.content);
+    }
+
+    function normalizeWorldBookEntry(entry) {
+      if (!entry || typeof entry !== "object") {
+        return { title: "", content: "", keywords: [] };
+      }
+      return {
+        title: firstText([entry.comment, entry.name, entry.key]) || "",
+        content: firstText([entry.content, entry.text, entry.entry]) || "",
+        keywords: collectStringArray([entry.keys, entry.key, entry.tags])
+      };
+    }
+
+    function buildKeywordBag({ name, description, personality, scenario, firstMessage, examples, tags, worldBook }) {
+      const text = [name, description, personality, scenario, firstMessage, examples]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const terms = new Set(tags.map((tag) => tag.toLowerCase()));
+      for (const token of text.match(/[a-z0-9_'-]{3,}/g) || []) {
+        if (!STOP_WORDS.has(token)) {
+          terms.add(token);
+        }
+      }
+      for (const entry of worldBook) {
+        for (const keyword of entry.keywords || []) {
+          if (keyword) {
+            terms.add(String(keyword).toLowerCase());
+          }
+        }
+      }
+      return [...terms].slice(0, 120);
+    }
+
+    function extractTagsFromText(text) {
+      if (!text) {
+        return [];
+      }
+      const directTags = text.match(/#[a-z0-9_-]+/gi) || [];
+      return directTags.map((tag) => tag.replace(/^#/, "").toLowerCase());
+    }
+
+    function collectStringArray(values) {
+      const set = new Set();
+      for (const value of values) {
+        if (!value) {
+          continue;
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            const normalized = normalizeTagLikeValue(item);
+            if (normalized) {
+              set.add(normalized);
+            }
+          }
+        } else if (typeof value === "string") {
+          for (const bit of value.split(/[,\n;|]/)) {
+            const normalized = normalizeTagLikeValue(bit);
+            if (normalized) {
+              set.add(normalized);
+            }
+          }
+        }
+      }
+      return [...set];
+    }
+
+    function normalizeTagLikeValue(value) {
+      if (value == null) {
+        return "";
+      }
+      const normalized = String(value).trim().replace(/^#+/, "").toLowerCase();
+      return normalized || "";
+    }
+
+    function firstText(values) {
+      for (const value of values) {
+        if (typeof value === "string" && value.trim()) {
+          return value.trim();
+        }
+      }
+      return "";
+    }
+
+    function getFileExtension(name) {
+      return name.split(".").pop().toLowerCase();
+    }
+
+    function hashCardIdentity(path, name, sourceType, description) {
+      return `card-${hashString([path, name, sourceType, description.slice(0, 180)].join("|"))}`;
+    }
+
+    function hashString(input) {
+      let hash = 2166136261;
+      for (let index = 0; index < input.length; index += 1) {
+        hash ^= input.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(16);
+    }
+
+    async function parsePngMetadata(buffer) {
+      const view = new DataView(buffer);
+      const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+      for (let index = 0; index < signature.length; index += 1) {
+        if (view.getUint8(index) !== signature[index]) {
+          throw new Error("Not a valid PNG file.");
+        }
+      }
+
+      const decoder = new TextDecoder();
+      const rawTextKeys = [];
+      const texts = [];
+      let offset = 8;
+      while (offset < view.byteLength) {
+        const length = view.getUint32(offset);
+        const type = decoder.decode(new Uint8Array(buffer, offset + 4, 4));
+        const dataOffset = offset + 8;
+        if (type === "tEXt") {
+          const bytes = new Uint8Array(buffer, dataOffset, length);
+          const nul = bytes.indexOf(0);
+          const key = decoder.decode(bytes.slice(0, nul >= 0 ? nul : 0));
+          const text = decoder.decode(bytes.slice(nul + 1));
+          rawTextKeys.push(key);
+          texts.push({ key, text, chunkType: type, compressed: false });
+        } else if (type === "zTXt") {
+          const bytes = new Uint8Array(buffer, dataOffset, length);
+          const nul = bytes.indexOf(0);
+          const key = decoder.decode(bytes.slice(0, nul >= 0 ? nul : 0));
+          const compressionMethod = bytes[nul + 1];
+          if (compressionMethod !== 0) {
+            throw new Error(`Unsupported zTXt compression method for "${key}".`);
+          }
+          const compressedBytes = bytes.slice(nul + 2);
+          const text = await inflatePngText(compressedBytes);
+          rawTextKeys.push(key);
+          texts.push({ key, text, chunkType: type, compressed: true });
+        } else if (type === "iTXt") {
+          const bytes = new Uint8Array(buffer, dataOffset, length);
+          let cursor = 0;
+          while (cursor < bytes.length && bytes[cursor] !== 0) cursor += 1;
+          const key = decoder.decode(bytes.slice(0, cursor));
+          cursor += 1;
+          const compressionFlag = bytes[cursor];
+          cursor += 1;
+          const compressionMethod = bytes[cursor];
+          cursor += 1;
+          while (cursor < bytes.length && bytes[cursor] !== 0) cursor += 1;
+          cursor += 1;
+          while (cursor < bytes.length && bytes[cursor] !== 0) cursor += 1;
+          cursor += 1;
+          const textBytes = bytes.slice(cursor);
+          let text = "";
+          if (compressionFlag === 1) {
+            if (compressionMethod !== 0) {
+              throw new Error(`Unsupported iTXt compression method for "${key}".`);
+            }
+            text = await inflatePngText(textBytes);
+          } else {
+            text = decoder.decode(textBytes);
+          }
+          rawTextKeys.push(key);
+          texts.push({ key, text, chunkType: type, compressionMethod, compressed: compressionFlag === 1 });
+        }
+        offset += 12 + length;
+        if (type === "IEND") {
+          break;
+        }
+      }
+
+      return {
+        rawTextKeys,
+        texts
+      };
+    }
+
+    async function inflatePngText(bytes) {
+      if (typeof DecompressionStream !== "function") {
+        throw new Error("Browser does not support compressed PNG text chunks (needs DecompressionStream).");
+      }
+      const stream = new Response(bytes).body.pipeThrough(new DecompressionStream("deflate"));
+      const inflated = await new Response(stream).arrayBuffer();
+      return new TextDecoder().decode(inflated);
+    }
+
+    function extractCardJsonFromMetadata(metadata) {
+      if (!metadata?.texts?.length) {
+        throw new Error("PNG did not contain readable metadata.");
+      }
+      const priorityTexts = [...metadata.texts].sort((left, right) => {
+        return scoreMetadataKey(right.key) - scoreMetadataKey(left.key);
+      });
+      const candidates = [];
+      for (const entry of priorityTexts) {
+        const text = entry.text?.trim();
+        if (!text) {
+          continue;
+        }
+        candidates.push(text);
+        if (/^[A-Za-z0-9+/=]+$/.test(text) && text.length % 4 === 0) {
+          try {
+            candidates.push(atob(text));
+          } catch {
+            // Ignore invalid base64 candidate.
+          }
+        }
+      }
+
+      for (const candidate of candidates) {
+        const parsed = tryParseEmbeddedJson(candidate);
+        if (parsed) {
+          return parsed;
+        }
+      }
+      throw new Error("No card JSON payload found inside PNG metadata.");
+    }
+
+    function scoreMetadataKey(key) {
+      const normalized = String(key || "").toLowerCase();
+      if (normalized === "chara") return 50;
+      if (normalized.includes("character")) return 40;
+      if (normalized.includes("ccv3")) return 35;
+      if (normalized.includes("card")) return 25;
+      if (normalized.includes("json")) return 20;
+      return 0;
+    }
+
+    function tryParseEmbeddedJson(text) {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        return null;
+      }
+      const attempts = [trimmed];
+      const openBrace = trimmed.indexOf("{");
+      if (openBrace > 0) {
+        attempts.push(trimmed.slice(openBrace));
+      }
+      for (const attempt of attempts) {
+        try {
+          return JSON.parse(attempt);
+        } catch {
+          // Keep trying.
+        }
+      }
+      return null;
+    }
+
+    function applyFilters() {
+      const search = state.activeFilters.search;
+      state.filteredCards = state.cards.filter((card) => {
+        if (state.activeFilters.sourceType && card.sourceType !== state.activeFilters.sourceType) {
+          return false;
+        }
+        if (state.activeFilters.analysisStatus) {
+          if (state.activeFilters.analysisStatus === "analyzed" && card.analysis.status !== "done") {
+            return false;
+          }
+          if (state.activeFilters.analysisStatus === "pending" && card.analysis.status === "done") {
+            return false;
+          }
+          if (state.activeFilters.analysisStatus === "warning" && card.derived.parserConfidence !== "warning" && card.derived.parserConfidence !== "error") {
+            return false;
+          }
+        }
+        if (state.activeFilters.manualTag && !card.manual.tags.includes(state.activeFilters.manualTag)) {
+          return false;
+        }
+        if (state.activeFilters.autoTag && !card.analysis.suggestedTags.includes(state.activeFilters.autoTag)) {
+          return false;
+        }
+        if (state.activeFilters.folder && card.derived.folder !== state.activeFilters.folder) {
+          return false;
+        }
+        if (search) {
+          const haystack = [
+            card.displayName,
+            card.sourcePath,
+            card.extracted.description,
+            card.extracted.personality,
+            card.extracted.scenario,
+            card.extracted.firstMessage,
+            card.extracted.examples,
+            card.manual.notes,
+            ...card.manual.tags,
+            ...card.extracted.tags,
+            ...card.analysis.suggestedTags,
+            ...card.analysis.entities,
+            ...Object.entries(card.manual.attributes).flatMap(([key, value]) => [key, String(value)])
+          ].join(" ").toLowerCase();
+          if (!haystack.includes(search)) {
+            return false;
+          }
+        }
+        return true;
+      });
+      if (!state.filteredCards.some((card) => card.id === state.selectedCardId)) {
+        state.selectedCardId = state.filteredCards[0]?.id || state.cards[0]?.id || null;
+      }
+      renderAll();
+    }
+
+    function renderAll() {
+      renderSummary();
+      renderFacets();
+      renderCardList();
+      renderCardDetail();
+      renderQueue();
+    }
+
+    function renderSummary() {
+      const analyzedCount = state.cards.filter((card) => card.analysis.status === "done").length;
+      const worldCount = state.cards.reduce((count, card) => count + card.analysis.worldEntries.filter((entry) => entry.status !== "ignored").length, 0);
+      els.cardCount.textContent = String(state.cards.length);
+      els.analysisCount.textContent = String(analyzedCount);
+      els.worldCount.textContent = String(worldCount);
+      els.queueCount.textContent = String(state.queue.length);
+      els.visibleCount.textContent = `${state.filteredCards.length} visible`;
+      els.analyzeAllBtn.disabled = state.cards.length === 0;
+      els.stopQueueBtn.disabled = !state.queueActive;
+    }
+
+    function renderFacets() {
+      renderFacetList(els.manualFacetList, buildFacetCounts(state.cards, (card) => card.manual.tags), state.activeFilters.manualTag, (value) => {
+        state.activeFilters.manualTag = state.activeFilters.manualTag === value ? "" : value;
+        applyFilters();
+      });
+      renderFacetList(els.autoFacetList, buildFacetCounts(state.cards, (card) => card.analysis.suggestedTags), state.activeFilters.autoTag, (value) => {
+        state.activeFilters.autoTag = state.activeFilters.autoTag === value ? "" : value;
+        applyFilters();
+      });
+      renderFacetList(els.folderFacetList, buildFacetCounts(state.cards, (card) => [card.derived.folder]), state.activeFilters.folder, (value) => {
+        state.activeFilters.folder = state.activeFilters.folder === value ? "" : value;
+        applyFilters();
+      });
+    }
+
+    function renderFacetList(container, counts, activeValue, onToggle) {
+      container.innerHTML = "";
+      if (!counts.length) {
+        container.innerHTML = '<div class="muted tiny">No facets yet.</div>';
+        return;
+      }
+      for (const [value, count] of counts) {
+        const button = document.createElement("button");
+        button.className = `facet ${value === activeValue ? "active" : ""}`;
+        button.innerHTML = `<span>${escapeHtml(value)}</span><span class="facet-count">${count}</span>`;
+        button.addEventListener("click", () => onToggle(value));
+        container.appendChild(button);
+      }
+    }
+
+    function buildFacetCounts(cards, mapper) {
+      const counts = new Map();
+      for (const card of cards) {
+        for (const value of mapper(card) || []) {
+          if (!value) {
+            continue;
+          }
+          counts.set(value, (counts.get(value) || 0) + 1);
+        }
+      }
+      return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 40);
+    }
+
+    function renderCardList() {
+      els.cardList.innerHTML = "";
+      if (!state.filteredCards.length) {
+        els.cardList.innerHTML = '<div class="empty">No cards match the current filters.</div>';
+        return;
+      }
+      for (const card of state.filteredCards) {
+        const item = document.createElement("article");
+        item.className = `card-item ${card.id === state.selectedCardId ? "active" : ""}`;
+        const summary = card.analysis.summary || card.extracted.description || card.extracted.personality || "No summary available.";
+        item.innerHTML = `
+          <h3>${escapeHtml(card.displayName)}</h3>
+          <p>${escapeHtml(truncate(summary, 170))}</p>
+          <div class="card-meta">
+            ${renderInlineBadge(card.sourceType.toUpperCase())}
+            ${renderInlineBadge(card.analysis.status === "done" ? "Analyzed" : "Pending")}
+            ${renderInlineBadge(card.derived.folder)}
+            ${card.derived.warnings.length ? renderInlineBadge("Warning") : ""}
+          </div>
+        `;
+        item.addEventListener("click", () => {
+          state.selectedCardId = card.id;
+          renderCardList();
+          renderCardDetail();
+        });
+        els.cardList.appendChild(item);
+      }
+    }
+
+    function renderCardDetail() {
+      const card = getSelectedCard();
+      els.cardDetail.innerHTML = "";
+      els.analyzeSelectedBtn.disabled = !card;
+      els.extractWorldBtn.disabled = !card;
+      els.exportAcceptedBtn.disabled = !card || !card.analysis.worldEntries.some((entry) => entry.status === "accepted");
+      if (!card) {
+        els.cardDetail.innerHTML = '<div class="empty">No card selected.</div>';
+        return;
+      }
+
+      const header = document.createElement("section");
+      header.className = "section";
+      header.innerHTML = `
+        <h3>${escapeHtml(card.displayName)}</h3>
+        <div class="pill-row">
+          ${renderPills([...card.extracted.tags], "tag")}
+          ${renderPills(card.manual.tags, "manual")}
+          ${renderPills(card.analysis.suggestedTags, "auto")}
+        </div>
+        <div class="divider"></div>
+        <div class="kv-grid">
+          ${renderKv("Path", card.sourcePath)}
+          ${renderKv("Source", card.sourceType.toUpperCase())}
+          ${renderKv("Parser", card.derived.parserConfidence)}
+          ${renderKv("Analyzed", card.lastAnalyzedAt ? new Date(card.lastAnalyzedAt).toLocaleString() : "Not yet")}
+        </div>
+      `;
+      els.cardDetail.appendChild(header);
+
+      els.cardDetail.appendChild(renderRawSection(card));
+      els.cardDetail.appendChild(renderManualSection(card));
+      els.cardDetail.appendChild(renderAnalysisSection(card));
+      els.cardDetail.appendChild(renderWorldSection(card));
+      els.cardDetail.appendChild(renderPayloadSection(card));
+    }
+
+    function renderRawSection(card) {
+      const section = document.createElement("section");
+      section.className = "section";
+      section.innerHTML = `
+        <h3>Extracted Fields</h3>
+        <div class="kv-grid">
+          ${renderKv("Description", card.extracted.description || "None")}
+          ${renderKv("Personality", card.extracted.personality || "None")}
+          ${renderKv("Scenario", card.extracted.scenario || "None")}
+          ${renderKv("First Message", card.extracted.firstMessage || "None")}
+          ${renderKv("Examples", card.extracted.examples || "None")}
+          ${renderKv("Creator Notes", card.extracted.creatorNotes || "None")}
+        </div>
+        <div class="divider"></div>
+        <div class="stack tiny">
+          <div><strong>Warnings</strong></div>
+          <div class="muted">${card.derived.warnings.length ? escapeHtml(card.derived.warnings.join(" | ")) : "No parser warnings."}</div>
+        </div>
+      `;
+      return section;
+    }
+
+    function renderManualSection(card) {
+      const section = document.createElement("section");
+      section.className = "section";
+      const attributePairs = Object.entries(card.manual.attributes);
+      section.innerHTML = `
+        <h3>Manual Metadata</h3>
+        <div class="field">
+          <label for="manualTagsInput">Manual Tags (comma separated)</label>
+          <input id="manualTagsInput" type="text" value="${escapeAttribute(card.manual.tags.join(", "))}">
+        </div>
+        <div class="field">
+          <label for="manualNotesInput">Notes</label>
+          <textarea id="manualNotesInput">${escapeHtml(card.manual.notes || "")}</textarea>
+        </div>
+        <div class="field">
+          <label for="manualAttributesInput">Custom Attributes (one per line as key: value)</label>
+          <textarea id="manualAttributesInput">${escapeHtml(attributePairs.map(([key, value]) => `${key}: ${value}`).join("\n"))}</textarea>
+        </div>
+        <div class="toolbar">
+          <button id="saveManualBtn" class="btn-secondary">Save Manual Metadata</button>
+        </div>
+      `;
+      section.querySelector("#saveManualBtn").addEventListener("click", () => {
+        card.manual.tags = collectStringArray([section.querySelector("#manualTagsInput").value]);
+        card.manual.notes = section.querySelector("#manualNotesInput").value.trim();
+        card.manual.attributes = parseAttributesText(section.querySelector("#manualAttributesInput").value);
+        persistCard(card);
+        applyFilters();
+        toast(`Saved manual metadata for ${card.displayName}.`);
+      });
+      return section;
+    }
+
+    function renderAnalysisSection(card) {
+      const section = document.createElement("section");
+      section.className = "section";
+      const statusClass = card.analysis.lastError ? "status-bad" : card.analysis.status === "done" ? "status-ok" : "status-warn";
+      section.innerHTML = `
+        <div class="inline">
+          <h3>LLM Analysis</h3>
+          <span class="status-badge ${statusClass}">${escapeHtml(card.analysis.status)}</span>
+        </div>
+        <div class="stack">
+          <div>${escapeHtml(card.analysis.summary || "No summary yet.")}</div>
+          <div><strong>Suggested Tags</strong></div>
+          <div class="tag-cloud">${renderPills(card.analysis.suggestedTags, "auto")}</div>
+          <div><strong>Categories</strong></div>
+          <div class="tag-cloud">${renderPills(card.analysis.categories, "category")}</div>
+          <div><strong>Entities</strong></div>
+          <div class="tag-cloud">${renderPills(card.analysis.entities, "entity")}</div>
+          <div><strong>Inferred Attributes</strong></div>
+          <div class="kv-grid">
+            ${Object.keys(card.analysis.inferredAttributes).length
+              ? Object.entries(card.analysis.inferredAttributes).map(([key, value]) => renderKv(key, String(value))).join("")
+              : renderKv("Status", "None")}
+          </div>
+          <div><strong>Notes</strong></div>
+          <div class="muted">${escapeHtml(card.analysis.extractionNotes.join(" | ") || card.analysis.lastError || "No notes yet.")}</div>
+          <div class="toolbar">
+            <button id="acceptTagsBtn" class="btn-secondary">Add Suggested Tags To Manual</button>
+          </div>
+        </div>
+      `;
+      section.querySelector("#acceptTagsBtn").addEventListener("click", () => {
+        const merged = new Set([...card.manual.tags, ...card.analysis.suggestedTags]);
+        card.manual.tags = [...merged].sort();
+        persistCard(card);
+        applyFilters();
+        toast(`Merged suggested tags into manual tags for ${card.displayName}.`);
+      });
+      return section;
+    }
+
+    function renderWorldSection(card) {
+      const section = document.createElement("section");
+      section.className = "section";
+      section.innerHTML = `<h3>World Info Candidates</h3>`;
+      const container = document.createElement("div");
+      container.className = "stack";
+      if (!card.analysis.worldEntries.length) {
+        container.innerHTML = '<div class="empty">No world info candidates yet. Run extraction to populate this area.</div>';
+      } else {
+        for (const [index, entry] of card.analysis.worldEntries.entries()) {
+          const item = document.createElement("article");
+          item.className = `entry-card ${entry.status}`;
+          item.innerHTML = `
+            <div class="inline">
+              <h4>${escapeHtml(entry.title || `Entry ${index + 1}`)}</h4>
+              <span class="status-badge">${escapeHtml(entry.status)}</span>
+              <span class="status-badge">${Math.round((entry.confidence || 0) * 100)}%</span>
+            </div>
+            <div>${escapeHtml(entry.content || "")}</div>
+            <div class="tag-cloud">${renderPills(entry.keywords || [], "keyword")}</div>
+            <div class="muted tiny">${escapeHtml(entry.rationale || "")}</div>
+            <div class="toolbar">
+              <button data-action="accept" data-index="${index}" class="btn-secondary">Accept</button>
+              <button data-action="ignore" data-index="${index}" class="btn-ghost">Ignore</button>
+              <button data-action="reset" data-index="${index}" class="btn-ghost">Reset</button>
+            </div>
+          `;
+          item.querySelectorAll("button[data-index]").forEach((button) => {
+            button.addEventListener("click", (event) => {
+              const action = event.currentTarget.dataset.action;
+              const target = card.analysis.worldEntries[Number(event.currentTarget.dataset.index)];
+              if (!target) {
+                return;
+              }
+              if (action === "accept") {
+                target.status = "accepted";
+              } else if (action === "ignore") {
+                target.status = "ignored";
+              } else {
+                target.status = "suggested";
+              }
+              persistCard(card);
+              renderCardDetail();
+              renderSummary();
+            });
+          });
+          container.appendChild(item);
+        }
+      }
+      section.appendChild(container);
+      return section;
+    }
+
+    function renderPayloadSection(card) {
+      const section = document.createElement("section");
+      section.className = "section";
+      section.innerHTML = `
+        <h3>Raw Payload Snapshot</h3>
+        <pre>${escapeHtml(JSON.stringify({
+          meta: card.extracted.rawMeta,
+          sample: card.raw
+        }, null, 2))}</pre>
+      `;
+      return section;
+    }
+
+    function renderQueue() {
+      els.queueList.innerHTML = "";
+      if (!state.queue.length) {
+        els.queueList.innerHTML = '<div class="muted tiny">Queue is empty.</div>';
+        return;
+      }
+      for (const item of state.queue) {
+        const row = document.createElement("div");
+        row.className = "queue-item";
+        row.innerHTML = `
+          <div>
+            <strong>${escapeHtml(item.label)}</strong>
+            <div class="tiny muted">${escapeHtml(item.cardId || "")}</div>
+          </div>
+          <span class="status-badge ${queueStatusClass(item.status)}">${escapeHtml(item.status)}</span>
+        `;
+        els.queueList.appendChild(row);
+      }
+    }
+
+    function queueStatusClass(status) {
+      if (status === "done") return "status-ok";
+      if (status === "error" || status === "stopped") return "status-bad";
+      return "status-warn";
+    }
+
+    async function testLlmConnection() {
+      saveSettingsFromUi();
+      setBusy(true, "Testing llama.cpp connection...");
+      try {
+        const response = await callLlm([
+          {
+            role: "system",
+            content: "Reply with valid JSON only: {\"status\":\"ok\",\"message\":\"short confirmation\"}"
+          },
+          {
+            role: "user",
+            content: "Confirm the server is reachable."
+          }
+        ]);
+        const parsed = parseJsonResponse(response);
+        toast(`LLM test succeeded: ${parsed.message || "Server responded."}`);
+      } catch (error) {
+        toast(`LLM test failed: ${error.message}`, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function analyzeSelectedCard() {
+      const card = getSelectedCard();
+      if (!card) {
+        return;
+      }
+      await analyzeCard(card);
+      renderAll();
+    }
+
+    async function extractWorldInfoForSelected() {
+      const card = getSelectedCard();
+      if (!card) {
+        return;
+      }
+      await extractWorldInfo(card);
+      renderAll();
+    }
+
+    async function analyzeAllCards() {
+      if (!state.cards.length) {
+        return;
+      }
+      state.queue = state.cards.map((card) => ({
+        cardId: card.id,
+        label: card.displayName,
+        type: "analyze",
+        status: "queued"
+      }));
+      state.queueActive = true;
+      state.stopRequested = false;
+      renderAll();
+
+      for (const item of state.queue) {
+        if (state.stopRequested) {
+          item.status = "stopped";
+          continue;
+        }
+        const card = state.cards.find((candidate) => candidate.id === item.cardId);
+        if (!card) {
+          item.status = "error";
+          continue;
+        }
+        item.status = "running";
+        renderQueue();
+        try {
+          await analyzeCard(card);
+          item.status = "done";
+        } catch {
+          item.status = "error";
+        }
+        renderAll();
+      }
+
+      state.queueActive = false;
+      const stopped = state.stopRequested;
+      state.stopRequested = false;
+      renderAll();
+      toast(stopped ? "Analysis queue stopped." : "Analysis queue finished.");
+    }
+
+    async function analyzeCard(card) {
+      saveSettingsFromUi();
+      card.analysis.status = "running";
+      card.analysis.lastError = "";
+      persistCard(card);
+      renderAll();
+      try {
+        const content = buildCardPromptPayload(card);
+        const response = await callLlm([
+          { role: "system", content: state.settings.analysisPrompt },
+          { role: "user", content }
+        ]);
+        const parsed = parseJsonResponse(response);
+        card.analysis.summary = safeString(parsed.summary);
+        card.analysis.suggestedTags = collectStringArray([parsed.suggestedTags]);
+        card.analysis.categories = collectStringArray([parsed.categories]);
+        card.analysis.inferredAttributes = typeof parsed.inferredAttributes === "object" && parsed.inferredAttributes
+          ? sanitizeObjectValues(parsed.inferredAttributes)
+          : {};
+        card.analysis.entities = collectStringArray([parsed.entities]);
+        card.analysis.extractionNotes = Array.isArray(parsed.extractionNotes)
+          ? parsed.extractionNotes.map((item) => safeString(item)).filter(Boolean)
+          : [];
+        card.analysis.status = "done";
+        card.lastAnalyzedAt = new Date().toISOString();
+        persistCard(card);
+        toast(`Analyzed ${card.displayName}.`);
+      } catch (error) {
+        card.analysis.status = "error";
+        card.analysis.lastError = error.message;
+        persistCard(card);
+        toast(`Analysis failed for ${card.displayName}: ${error.message}`, true);
+        throw error;
+      }
+    }
+
+    async function extractWorldInfo(card) {
+      saveSettingsFromUi();
+      card.analysis.lastError = "";
+      card.analysis.status = "running";
+      persistCard(card);
+      renderAll();
+      try {
+        const content = buildCardPromptPayload(card, true);
+        const response = await callLlm([
+          { role: "system", content: state.settings.worldPrompt },
+          { role: "user", content }
+        ]);
+        const parsed = parseJsonResponse(response);
+        const entries = Array.isArray(parsed.entries) ? parsed.entries : [];
+        card.analysis.worldEntries = entries.map((entry, index) => ({
+          id: `world-${card.id}-${index}-${hashString(JSON.stringify(entry))}`,
+          title: safeString(entry.title) || `Entry ${index + 1}`,
+          content: safeString(entry.content),
+          keywords: collectStringArray([entry.keywords]),
+          confidence: normalizeConfidence(entry.confidence),
+          rationale: safeString(entry.rationale),
+          sourceCardId: card.id,
+          status: "suggested"
+        })).filter((entry) => entry.content);
+        card.analysis.status = "done";
+        card.lastAnalyzedAt = new Date().toISOString();
+        persistCard(card);
+        toast(`Extracted ${card.analysis.worldEntries.length} world info entr${card.analysis.worldEntries.length === 1 ? "y" : "ies"} from ${card.displayName}.`);
+      } catch (error) {
+        card.analysis.status = "error";
+        card.analysis.lastError = error.message;
+        persistCard(card);
+        toast(`World extraction failed for ${card.displayName}: ${error.message}`, true);
+        throw error;
+      }
+    }
+
+    async function exportAcceptedWorldEntries() {
+      const card = getSelectedCard();
+      if (!card) {
+        return;
+      }
+      const accepted = card.analysis.worldEntries.filter((entry) => entry.status === "accepted");
+      if (!accepted.length) {
+        toast("No accepted entries to export.", true);
+        return;
+      }
+      const support = getRuntimeSupport();
+      setBusy(true, support.canPickWorldFolder ? "Exporting accepted world info..." : "Preparing downloads...");
+      try {
+        for (const entry of accepted) {
+          const fileName = `${sanitizeFileName(entry.title || "world-entry")}.md`;
+          const body = buildWorldEntryDocument(card, entry);
+          if (support.canPickWorldFolder && state.handles.worldFolder) {
+            const handle = await state.handles.worldFolder.getFileHandle(fileName, { create: true });
+            const writable = await handle.createWritable();
+            await writable.write(body);
+            await writable.close();
+          } else {
+            downloadTextFile(fileName, body);
+          }
+          entry.status = "exported";
+        }
+        persistCard(card);
+        renderAll();
+        toast(
+          support.canPickWorldFolder && state.handles.worldFolder
+            ? `Exported ${accepted.length} world info file${accepted.length === 1 ? "" : "s"}.`
+            : `Downloaded ${accepted.length} world info file${accepted.length === 1 ? "" : "s"}.`
+        );
+      } catch (error) {
+        toast(`Export failed: ${error.message}`, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function buildCardPromptPayload(card, includeWorldBook = false) {
+      return JSON.stringify({
+        card: {
+          name: card.displayName,
+          sourcePath: card.sourcePath,
+          sourceType: card.sourceType,
+          description: card.extracted.description,
+          personality: card.extracted.personality,
+          scenario: card.extracted.scenario,
+          firstMessage: card.extracted.firstMessage,
+          examples: card.extracted.examples,
+          creatorNotes: card.extracted.creatorNotes,
+          systemPrompt: card.extracted.systemPrompt,
+          postHistoryInstructions: card.extracted.postHistoryInstructions,
+          extractedTags: card.extracted.tags,
+          manualTags: card.manual.tags,
+          manualAttributes: card.manual.attributes,
+          manualNotes: card.manual.notes,
+          worldBookEntries: includeWorldBook ? card.extracted.worldBook : card.extracted.worldBook.slice(0, 8),
+          parserWarnings: card.derived.warnings
+        }
+      }, null, 2);
+    }
+
+    function buildWorldEntryDocument(card, entry) {
+      const header = [
+        "---",
+        `title: ${entry.title}`,
+        `source_card: ${card.displayName}`,
+        `source_path: ${card.sourcePath}`,
+        `keywords: ${entry.keywords.join(", ")}`,
+        `confidence: ${entry.confidence}`,
+        `exported_at: ${new Date().toISOString()}`,
+        "---",
+        ""
+      ].join("\n");
+      return `${header}${entry.content}\n`;
+    }
+
+    function downloadTextFile(fileName, contents) {
+      const blob = new Blob([contents], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function callLlm(messages) {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), state.settings.llmTimeout);
+      try {
+        const endpoint = `${state.settings.llmBaseUrl}${normalizeEndpoint(state.settings.llmEndpoint)}`;
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            messages,
+            temperature: state.settings.llmTemperature,
+            top_p: state.settings.llmTopP,
+            response_format: { type: "json_object" }
+          }),
+          signal: controller.signal
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`HTTP ${response.status}: ${text.slice(0, 260)}`);
+        }
+        const payload = await response.json();
+        const content = payload?.choices?.[0]?.message?.content;
+        if (!content) {
+          throw new Error("Server returned no message content.");
+        }
+        return content;
+      } catch (error) {
+        if (error.name === "AbortError") {
+          throw new Error("Request timed out.");
+        }
+        throw error;
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+
+    function parseJsonResponse(text) {
+      const parsed = safeJsonParse(text);
+      if (!parsed) {
+        const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+        if (fenced) {
+          const nested = safeJsonParse(fenced[1]);
+          if (nested) {
+            return nested;
+          }
+        }
+        throw new Error("LLM response was not valid JSON.");
+      }
+      return parsed;
+    }
+
+    function safeJsonParse(text, fallback = null) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        return fallback;
+      }
+    }
+
+    function getSelectedCard() {
+      return state.cards.find((card) => card.id === state.selectedCardId) || null;
+    }
+
+    function renderKv(label, value) {
+      return `<div class="kv"><strong>${escapeHtml(label)}</strong><div>${escapeHtml(truncate(String(value), 1000))}</div></div>`;
+    }
+
+    function renderPills(values, label) {
+      if (!values?.length) {
+        return '<span class="muted tiny">None</span>';
+      }
+      return values.map((value) => `<span class="pill">${escapeHtml(value)} <span class="facet-count">${escapeHtml(label)}</span></span>`).join("");
+    }
+
+    function renderInlineBadge(text) {
+      return `<span class="status-badge">${escapeHtml(text)}</span>`;
+    }
+
+    function parseAttributesText(text) {
+      const attributes = {};
+      for (const line of text.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          continue;
+        }
+        const separator = trimmed.indexOf(":");
+        if (separator === -1) {
+          attributes[trimmed] = "true";
+          continue;
+        }
+        const key = trimmed.slice(0, separator).trim();
+        const value = trimmed.slice(separator + 1).trim();
+        if (key) {
+          attributes[key] = value;
+        }
+      }
+      return attributes;
+    }
+
+    function sanitizeObjectValues(input) {
+      const output = {};
+      for (const [key, value] of Object.entries(input)) {
+        const safeKey = safeString(key);
+        const safeValue = safeString(value);
+        if (safeKey && safeValue) {
+          output[safeKey] = safeValue;
+        }
+      }
+      return output;
+    }
+
+    function safeString(value) {
+      return typeof value === "string" ? value.trim() : (value == null ? "" : String(value).trim());
+    }
+
+    function normalizeConfidence(value) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) {
+        return 0.5;
+      }
+      return Math.max(0, Math.min(1, numeric));
+    }
+
+    function sanitizeFileName(name) {
+      return safeString(name).replace(/[<>:"/\\|?*\x00-\x1F]/g, "-").replace(/\s+/g, "-").slice(0, 80) || "world-entry";
+    }
+
+    function clampNumber(value, min, max, fallback) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) {
+        return fallback;
+      }
+      return Math.min(max, Math.max(min, numeric));
+    }
+
+    function normalizeEndpoint(endpoint) {
+      const cleaned = safeString(endpoint || "/v1/chat/completions");
+      return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
+    }
+
+    function truncate(text, max) {
+      if (text.length <= max) {
+        return text;
+      }
+      return `${text.slice(0, max - 1)}…`;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replace(/`/g, "&#96;");
+    }
+
+    function setBusy(isBusy, label = "") {
+      document.body.style.cursor = isBusy ? "progress" : "";
+      const support = getRuntimeSupport();
+      els.pickFolderBtn.disabled = isBusy || !support.canImportFolder;
+      els.pickWorldBtn.disabled = isBusy || !support.canPickWorldFolder;
+      els.rescanBtn.disabled = isBusy || (!state.handles.cardFolder && !state.importedFiles.length);
+      els.analyzeAllBtn.disabled = isBusy || !state.cards.length;
+      els.analyzeSelectedBtn.disabled = isBusy || !getSelectedCard();
+      els.extractWorldBtn.disabled = isBusy || !getSelectedCard();
+      if (label) {
+        toast(label);
+      }
+    }
+
+    function toast(message, isError = false) {
+      state.uiMessage = message;
+      console[isError ? "error" : "log"](message);
+      els.browserSupportBadge.textContent = message;
+      els.browserSupportBadge.className = `status-badge ${isError ? "status-bad" : "status-warn"}`;
+      window.clearTimeout(toast.timer);
+      toast.timer = window.setTimeout(updateBrowserSupport, 4000);
+    }
+
+    function getRuntimeSupport() {
+      const hasPicker = typeof window.showDirectoryPicker === "function";
+      const fileInput = document.createElement("input");
+      const hasDirectoryUpload = "webkitdirectory" in fileInput;
+      const isFileProtocol = window.location.protocol === "file:";
+      const secureEnough = window.isSecureContext || isFileProtocol;
+      if (!hasPicker && !hasDirectoryUpload) {
+        return {
+          canImportFolder: false,
+          canUseFolderApi: false,
+          canUseDirectoryUpload: false,
+          canPickWorldFolder: false,
+          statusClass: "status-bad",
+          message: "Folder import is unavailable in this browser"
+        };
+      }
+      if (hasPicker && !secureEnough) {
+        return {
+          canImportFolder: hasDirectoryUpload,
+          canUseFolderApi: false,
+          canUseDirectoryUpload: hasDirectoryUpload,
+          canPickWorldFolder: false,
+          statusClass: "status-bad",
+          message: hasDirectoryUpload
+            ? "Use http://localhost for full folder access; fallback import is still available"
+            : "Open this app from https:// or http://localhost"
+        };
+      }
+      if (hasPicker && isFileProtocol) {
+        return {
+          canImportFolder: true,
+          canUseFolderApi: true,
+          canUseDirectoryUpload: hasDirectoryUpload,
+          canPickWorldFolder: true,
+          statusClass: "status-warn",
+          message: "file:// mode may break folder access; localhost is recommended"
+        };
+      }
+      if (hasPicker) {
+        return {
+          canImportFolder: true,
+          canUseFolderApi: true,
+          canUseDirectoryUpload: hasDirectoryUpload,
+          canPickWorldFolder: true,
+          statusClass: "status-ok",
+          message: "Folder API ready"
+        };
+      }
+      return {
+        canImportFolder: true,
+        canUseFolderApi: false,
+        canUseDirectoryUpload: true,
+        canPickWorldFolder: false,
+        statusClass: "status-warn",
+        message: "Read-only folder import ready; world exports will download files"
+      };
+    }
+
+    const STOP_WORDS = new Set([
+      "the", "and", "that", "with", "have", "this", "from", "your", "they", "their", "about", "would", "there",
+      "which", "when", "them", "then", "into", "while", "where", "what", "will", "were", "been", "being", "also",
+      "only", "more", "some", "such", "than", "very", "just", "like", "into", "onto", "upon", "over", "under",
+      "each", "hers", "his", "her", "she", "him", "you", "our", "ours", "for", "are", "not", "can", "its", "who",
+      "how", "why", "out", "all", "any", "may", "because", "through", "across", "between", "after", "before"
+    ]);
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# OS / Explorer noise
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+
+# Local test content you may not want on GitHub
+cards/
+world-info/
+exports/
+samples/
