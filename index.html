@@ -80,6 +80,7 @@
 
     .panel-body {
       padding: 0 20px 20px;
+      min-width: 0;
     }
 
     .masthead {
@@ -201,6 +202,7 @@
     .stack {
       display: grid;
       gap: 14px;
+      min-width: 0;
     }
 
     .controls-grid {
@@ -219,6 +221,7 @@
     .field {
       display: grid;
       gap: 6px;
+      min-width: 0;
     }
 
     .field label {
@@ -266,12 +269,16 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      max-width: 100%;
+      min-width: 0;
       padding: 7px 10px;
       border-radius: 999px;
       border: 1px solid var(--line);
       background: rgba(255, 255, 255, 0.75);
       color: var(--text);
       font-size: 0.9rem;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .facet {
@@ -348,6 +355,8 @@
       border: 1px solid var(--line);
       border-radius: 18px;
       background: rgba(255, 255, 255, 0.64);
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
 
     .section h3,
@@ -418,6 +427,8 @@
     .queue-item {
       display: flex;
       justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
       gap: 12px;
       padding: 10px 12px;
       border: 1px solid var(--line);
@@ -425,15 +436,24 @@
       background: rgba(255, 255, 255, 0.72);
     }
 
+    .queue-item > div {
+      min-width: 0;
+      flex: 1 1 220px;
+      overflow-wrap: anywhere;
+    }
+
     .status-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      max-width: 100%;
       padding: 5px 9px;
       border-radius: 999px;
       font-size: 0.83rem;
       border: 1px solid var(--line);
       background: rgba(255, 255, 255, 0.78);
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .status-ok {
@@ -464,6 +484,7 @@
       display: grid;
       gap: 12px;
       grid-template-columns: repeat(2, minmax(0, 1fr));
+      min-width: 0;
     }
 
     .code {
@@ -475,6 +496,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      min-width: 0;
     }
 
     .divider {
