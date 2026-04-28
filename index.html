@@ -535,6 +535,7 @@
         <div class="hero-actions">
           <button id="pickFolderBtn" class="btn-primary">Open Character Folder</button>
           <button id="pickSingleCardBtn" class="btn-secondary">Open Single Card</button>
+          <button id="analyzeFolderBtn" class="btn-good" disabled>Analyze Folder</button>
           <button id="rescanBtn" class="btn-secondary" disabled>Rescan Folder</button>
           <button id="pickWorldBtn" class="btn-good">Choose World Info Folder</button>
           <button id="testLlmBtn" class="btn-secondary">Test llama.cpp</button>
@@ -671,6 +672,8 @@
 
         <div class="section">
           <h3>Queue</h3>
+          <div id="queueSummary" class="muted tiny">No queued analysis yet.</div>
+          <div class="divider"></div>
           <div class="toolbar">
             <button id="analyzeAllBtn" class="btn-primary" disabled>Analyze All</button>
             <button id="stopQueueBtn" class="btn-danger" disabled>Stop Queue</button>
@@ -792,11 +795,11 @@ Rules:
 
     function bindElements() {
       const ids = [
-        "pickFolderBtn", "pickSingleCardBtn", "rescanBtn", "pickWorldBtn", "testLlmBtn", "cardCount", "analysisCount", "worldCount",
+        "pickFolderBtn", "pickSingleCardBtn", "analyzeFolderBtn", "rescanBtn", "pickWorldBtn", "testLlmBtn", "cardCount", "analysisCount", "worldCount",
         "queueCount", "browserSupportBadge", "searchInput", "sourceFilter", "analysisFilter", "folderName",
         "worldFolderName", "lastScanValue", "manualFacetList", "autoFacetList", "folderFacetList", "llmBaseUrl",
         "llmModelLabel", "llmTemperature", "llmTopP", "llmTimeout", "llmEndpoint", "saveSettingsBtn",
-        "resetPromptsBtn", "analysisPrompt", "worldPrompt", "queueList", "analyzeAllBtn", "stopQueueBtn",
+        "resetPromptsBtn", "analysisPrompt", "worldPrompt", "queueList", "queueSummary", "analyzeAllBtn", "stopQueueBtn",
         "visibleCount", "cardList", "analyzeSelectedBtn", "extractWorldBtn", "exportAcceptedBtn", "cardDetail",
         "folderInput", "singleCardInput"
       ];
@@ -808,6 +811,7 @@ Rules:
     function bindEvents() {
       els.pickFolderBtn.addEventListener("click", pickCardFolder);
       els.pickSingleCardBtn.addEventListener("click", pickSingleCard);
+      els.analyzeFolderBtn.addEventListener("click", analyzeFolderCards);
       els.rescanBtn.addEventListener("click", () => scanFolder(true));
       els.pickWorldBtn.addEventListener("click", pickWorldFolder);
       els.testLlmBtn.addEventListener("click", testLlmConnection);
@@ -911,6 +915,7 @@ Rules:
       els.pickFolderBtn.disabled = !support.canImportFolder;
       els.pickSingleCardBtn.disabled = false;
       els.pickWorldBtn.disabled = !support.canPickWorldFolder;
+      updateAnalyzeFolderButton();
     }
 
     async function pickCardFolder() {
@@ -1657,6 +1662,7 @@ Rules:
       renderCardList();
       renderCardDetail();
       renderQueue();
+      updateAnalyzeFolderButton();
     }
 
     function renderSummary() {
@@ -1667,8 +1673,18 @@ Rules:
       els.worldCount.textContent = String(worldCount);
       els.queueCount.textContent = String(state.queue.length);
       els.visibleCount.textContent = `${state.filteredCards.length} visible`;
-      els.analyzeAllBtn.disabled = state.cards.length === 0;
+      els.analyzeAllBtn.disabled = state.cards.length === 0 || state.queueActive;
       els.stopQueueBtn.disabled = !state.queueActive;
+    }
+
+    function updateAnalyzeFolderButton() {
+      if (!els.analyzeFolderBtn) {
+        return;
+      }
+      const isFolderDataset = state.folderMode === "handle" || state.folderMode === "upload";
+      const queueBlocked = state.queueActive;
+      els.analyzeFolderBtn.disabled = !isFolderDataset || !state.cards.length || queueBlocked;
+      els.analyzeFolderBtn.textContent = isFolderDataset ? "Analyze Folder" : "Analyze Folder (folder only)";
     }
 
     function renderFacets() {
@@ -1943,6 +1959,7 @@ Rules:
 
     function renderQueue() {
       els.queueList.innerHTML = "";
+      els.queueSummary.textContent = describeQueue();
       if (!state.queue.length) {
         els.queueList.innerHTML = '<div class="muted tiny">Queue is empty.</div>';
         return;
@@ -1953,9 +1970,9 @@ Rules:
         row.innerHTML = `
           <div>
             <strong>${escapeHtml(item.label)}</strong>
-            <div class="tiny muted">${escapeHtml(item.cardId || "")}</div>
+            <div class="tiny muted">${escapeHtml(item.reason || item.cardId || "")}</div>
           </div>
-          <span class="status-badge ${queueStatusClass(item.status)}">${escapeHtml(item.status)}</span>
+          <span class="status-badge ${queueStatusClass(item.status)}">${escapeHtml(formatQueueStatus(item))}</span>
         `;
         els.queueList.appendChild(row);
       }
@@ -1963,8 +1980,53 @@ Rules:
 
     function queueStatusClass(status) {
       if (status === "done") return "status-ok";
+      if (status === "skipped") return "status-warn";
       if (status === "error" || status === "stopped") return "status-bad";
       return "status-warn";
+    }
+
+    function formatQueueStatus(item) {
+      if (item.status === "retrying") {
+        return `retry ${item.attempts}/${item.maxAttempts}`;
+      }
+      if (item.status === "running") {
+        return `running ${item.attempts}/${item.maxAttempts}`;
+      }
+      return item.status;
+    }
+
+    function describeQueue() {
+      if (!state.queue.length) {
+        return "No queued analysis yet.";
+      }
+      const counts = countQueueStatuses(state.queue);
+      return [
+        `Queued ${counts.queued}`,
+        `Running ${counts.running}`,
+        `Retrying ${counts.retrying}`,
+        `Done ${counts.done}`,
+        `Skipped ${counts.skipped}`,
+        `Failed ${counts.error}`,
+        `Stopped ${counts.stopped}`
+      ].join(" | ");
+    }
+
+    function countQueueStatuses(items) {
+      const counts = {
+        queued: 0,
+        running: 0,
+        retrying: 0,
+        done: 0,
+        skipped: 0,
+        error: 0,
+        stopped: 0
+      };
+      for (const item of items) {
+        if (Object.hasOwn(counts, item.status)) {
+          counts[item.status] += 1;
+        }
+      }
+      return counts;
     }
 
     async function testLlmConnection() {
@@ -1999,6 +2061,10 @@ Rules:
       renderAll();
     }
 
+    async function analyzeFolderCards() {
+      await analyzeAllCards({ folderOnly: true });
+    }
+
     async function extractWorldInfoForSelected() {
       const card = getSelectedCard();
       if (!card) {
@@ -2008,37 +2074,58 @@ Rules:
       renderAll();
     }
 
-    async function analyzeAllCards() {
+    async function analyzeAllCards(options = {}) {
       if (!state.cards.length) {
         return;
       }
-      state.queue = state.cards.map((card) => ({
-        cardId: card.id,
-        label: card.displayName,
-        type: "analyze",
-        status: "queued"
-      }));
+      const mode = options.folderOnly ? "folder" : "all";
+      const isFolderDataset = state.folderMode === "handle" || state.folderMode === "upload";
+      if (mode === "folder" && !isFolderDataset) {
+        toast("Analyze Folder is only available after loading a folder.", true);
+        return;
+      }
+      state.queue = buildAnalysisQueue(mode);
       state.queueActive = true;
       state.stopRequested = false;
       renderAll();
 
       for (const item of state.queue) {
         if (state.stopRequested) {
-          item.status = "stopped";
+          if (item.status === "queued") {
+            item.status = "stopped";
+            item.reason = item.reason || "Queue stopped before processing.";
+          }
+          continue;
+        }
+        if (item.status === "skipped") {
           continue;
         }
         const card = state.cards.find((candidate) => candidate.id === item.cardId);
         if (!card) {
           item.status = "error";
+          item.reason = "Card was no longer available.";
           continue;
         }
-        item.status = "running";
-        renderQueue();
-        try {
-          await analyzeCard(card);
-          item.status = "done";
-        } catch {
-          item.status = "error";
+        while (item.attempts < item.maxAttempts) {
+          item.attempts += 1;
+          item.status = item.attempts > 1 ? "retrying" : "running";
+          item.reason = item.attempts > 1 ? `Retrying after previous failure.` : "";
+          renderQueue();
+          try {
+            await analyzeCard(card);
+            item.status = "done";
+            item.reason = "";
+            break;
+          } catch (error) {
+            if (item.attempts < item.maxAttempts) {
+              item.status = "retrying";
+              item.reason = `Attempt ${item.attempts} failed: ${error.message}`;
+              renderQueue();
+              continue;
+            }
+            item.status = "error";
+            item.reason = error.message;
+          }
         }
         renderAll();
       }
@@ -2047,7 +2134,24 @@ Rules:
       const stopped = state.stopRequested;
       state.stopRequested = false;
       renderAll();
-      toast(stopped ? "Analysis queue stopped." : "Analysis queue finished.");
+      const counts = countQueueStatuses(state.queue);
+      const summary = `done ${counts.done}, skipped ${counts.skipped}, failed ${counts.error}${stopped ? `, stopped ${counts.stopped}` : ""}`;
+      toast(stopped ? `Analysis queue stopped: ${summary}.` : `Analysis queue finished: ${summary}.`);
+    }
+
+    function buildAnalysisQueue(mode) {
+      return state.cards.map((card) => {
+        const eligible = card.analysis.status !== "done";
+        return {
+          cardId: card.id,
+          label: card.displayName,
+          type: mode === "folder" ? "folder-analyze" : "analyze",
+          status: eligible ? "queued" : "skipped",
+          attempts: 0,
+          maxAttempts: eligible ? 2 : 0,
+          reason: eligible ? "" : "Skipped because organizer analysis already exists."
+        };
+      });
     }
 
     async function analyzeCard(card) {
@@ -2381,9 +2485,10 @@ Rules:
       const support = getRuntimeSupport();
       els.pickFolderBtn.disabled = isBusy || !support.canImportFolder;
       els.pickSingleCardBtn.disabled = isBusy;
+      els.analyzeFolderBtn.disabled = isBusy || !(state.folderMode === "handle" || state.folderMode === "upload") || !state.cards.length || state.queueActive;
       els.pickWorldBtn.disabled = isBusy || !support.canPickWorldFolder;
       els.rescanBtn.disabled = isBusy || (!state.handles.cardFolder && !state.importedFiles.length);
-      els.analyzeAllBtn.disabled = isBusy || !state.cards.length;
+      els.analyzeAllBtn.disabled = isBusy || !state.cards.length || state.queueActive;
       els.analyzeSelectedBtn.disabled = isBusy || !getSelectedCard();
       els.extractWorldBtn.disabled = isBusy || !getSelectedCard();
       if (label) {
