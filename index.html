@@ -1137,6 +1137,7 @@ Rules:
       }
       if (sourceType === "png") {
         const buffer = await file.arrayBuffer();
+        assertLikelyPng(buffer);
         const pngMeta = await parsePngMetadata(buffer);
         const raw = extractCardJsonFromMetadata(pngMeta);
         return normalizeCardRecord({
@@ -1148,6 +1149,17 @@ Rules:
         });
       }
       return null;
+    }
+
+    function assertLikelyPng(buffer) {
+      const bytes = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 12));
+      if (bytes.length >= 12) {
+        const riff = String.fromCharCode(...bytes.slice(0, 4));
+        const webp = String.fromCharCode(...bytes.slice(8, 12));
+        if (riff === "RIFF" && webp === "WEBP") {
+          throw new Error("This file is actually a WEBP image renamed as .png.");
+        }
+      }
     }
 
     function createErrorCard(relativePath, sourceType, error) {
@@ -1483,7 +1495,7 @@ Rules:
       const signature = [137, 80, 78, 71, 13, 10, 26, 10];
       for (let index = 0; index < signature.length; index += 1) {
         if (view.getUint8(index) !== signature[index]) {
-          throw new Error("Not a valid PNG file.");
+          throw new Error("Not a valid PNG file or PNG metadata was stripped.");
         }
       }
 
@@ -1564,7 +1576,7 @@ Rules:
 
     function extractCardJsonFromMetadata(metadata) {
       if (!metadata?.texts?.length) {
-        throw new Error("PNG did not contain readable metadata.");
+        throw new Error("PNG contained no text metadata. It may be a plain image, stripped card, or unsupported export.");
       }
       const priorityTexts = [...metadata.texts].sort((left, right) => {
         return scoreMetadataKey(right.key) - scoreMetadataKey(left.key);
@@ -1575,13 +1587,18 @@ Rules:
         if (!text) {
           continue;
         }
-        candidates.push(text);
-        if (/^[A-Za-z0-9+/=]+$/.test(text) && text.length % 4 === 0) {
-          try {
-            candidates.push(atob(text));
-          } catch {
-            // Ignore invalid base64 candidate.
+        const normalizedKey = String(entry.key || "").toLowerCase();
+        if (normalizedKey === "ccv3" || normalizedKey === "chara") {
+          const decoded = tryDecodeBase64Utf8(text);
+          if (decoded) {
+            candidates.push(decoded);
           }
+          continue;
+        }
+        candidates.push(text);
+        const decoded = tryDecodeBase64Utf8(text);
+        if (decoded) {
+          candidates.push(decoded);
         }
       }
 
@@ -1591,17 +1608,41 @@ Rules:
           return parsed;
         }
       }
-      throw new Error("No card JSON payload found inside PNG metadata.");
+      const availableKeys = metadata.texts.map((entry) => entry.key).filter(Boolean).join(", ");
+      throw new Error(
+        availableKeys
+          ? `No character card JSON found in PNG metadata. Found keys: ${availableKeys}.`
+          : "No character card JSON found in PNG metadata."
+      );
     }
 
     function scoreMetadataKey(key) {
       const normalized = String(key || "").toLowerCase();
+      if (normalized === "ccv3") return 60;
       if (normalized === "chara") return 50;
       if (normalized.includes("character")) return 40;
       if (normalized.includes("ccv3")) return 35;
       if (normalized.includes("card")) return 25;
       if (normalized.includes("json")) return 20;
       return 0;
+    }
+
+    function tryDecodeBase64Utf8(text) {
+      const trimmed = String(text || "").trim();
+      if (!trimmed || !/^[A-Za-z0-9+/=\s]+$/.test(trimmed)) {
+        return null;
+      }
+      const compact = trimmed.replace(/\s+/g, "");
+      if (compact.length % 4 !== 0) {
+        return null;
+      }
+      try {
+        const binary = atob(compact);
+        const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+        return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      } catch {
+        return null;
+      }
     }
 
     function tryParseEmbeddedJson(text) {
