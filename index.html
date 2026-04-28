@@ -534,6 +534,7 @@
         </p>
         <div class="hero-actions">
           <button id="pickFolderBtn" class="btn-primary">Open Character Folder</button>
+          <button id="pickSingleCardBtn" class="btn-secondary">Open Single Card</button>
           <button id="rescanBtn" class="btn-secondary" disabled>Rescan Folder</button>
           <button id="pickWorldBtn" class="btn-good">Choose World Info Folder</button>
           <button id="testLlmBtn" class="btn-secondary">Test llama.cpp</button>
@@ -708,6 +709,7 @@
   </main>
 
   <input id="folderInput" class="hidden" type="file" webkitdirectory multiple>
+  <input id="singleCardInput" class="hidden" type="file" accept=".json,.png,application/json,image/png">
 
   <script>
     const STORAGE_KEY = "character-card-manager-v1";
@@ -790,13 +792,13 @@ Rules:
 
     function bindElements() {
       const ids = [
-        "pickFolderBtn", "rescanBtn", "pickWorldBtn", "testLlmBtn", "cardCount", "analysisCount", "worldCount",
+        "pickFolderBtn", "pickSingleCardBtn", "rescanBtn", "pickWorldBtn", "testLlmBtn", "cardCount", "analysisCount", "worldCount",
         "queueCount", "browserSupportBadge", "searchInput", "sourceFilter", "analysisFilter", "folderName",
         "worldFolderName", "lastScanValue", "manualFacetList", "autoFacetList", "folderFacetList", "llmBaseUrl",
         "llmModelLabel", "llmTemperature", "llmTopP", "llmTimeout", "llmEndpoint", "saveSettingsBtn",
         "resetPromptsBtn", "analysisPrompt", "worldPrompt", "queueList", "analyzeAllBtn", "stopQueueBtn",
         "visibleCount", "cardList", "analyzeSelectedBtn", "extractWorldBtn", "exportAcceptedBtn", "cardDetail",
-        "folderInput"
+        "folderInput", "singleCardInput"
       ];
       for (const id of ids) {
         els[id] = document.getElementById(id);
@@ -805,6 +807,7 @@ Rules:
 
     function bindEvents() {
       els.pickFolderBtn.addEventListener("click", pickCardFolder);
+      els.pickSingleCardBtn.addEventListener("click", pickSingleCard);
       els.rescanBtn.addEventListener("click", () => scanFolder(true));
       els.pickWorldBtn.addEventListener("click", pickWorldFolder);
       els.testLlmBtn.addEventListener("click", testLlmConnection);
@@ -831,6 +834,7 @@ Rules:
       els.extractWorldBtn.addEventListener("click", extractWorldInfoForSelected);
       els.exportAcceptedBtn.addEventListener("click", exportAcceptedWorldEntries);
       els.folderInput.addEventListener("change", importFolderFromInput);
+      els.singleCardInput.addEventListener("change", importSingleCardFromInput);
     }
 
     function loadInitialSettings() {
@@ -905,6 +909,7 @@ Rules:
       els.browserSupportBadge.textContent = support.message;
       els.browserSupportBadge.className = `status-badge ${support.statusClass}`;
       els.pickFolderBtn.disabled = !support.canImportFolder;
+      els.pickSingleCardBtn.disabled = false;
       els.pickWorldBtn.disabled = !support.canPickWorldFolder;
     }
 
@@ -956,6 +961,36 @@ Rules:
       }
     }
 
+    function pickSingleCard() {
+      els.singleCardInput.value = "";
+      els.singleCardInput.click();
+    }
+
+    async function importSingleCardFromInput(event) {
+      const [file] = Array.from(event.target.files || []);
+      if (!file) {
+        return;
+      }
+      const ext = getFileExtension(file.name);
+      if (!["json", "png"].includes(ext)) {
+        toast("Please choose a .json or .png character card.", true);
+        event.target.value = "";
+        return;
+      }
+      state.handles.cardFolder = null;
+      state.importedFiles = [file];
+      state.folderMode = "single";
+      state.settings.lastFolderName = file.name;
+      savePersistedState();
+      els.folderName.textContent = `${file.name} (single card)`;
+      els.rescanBtn.disabled = false;
+      try {
+        await scanFolder(false);
+      } finally {
+        event.target.value = "";
+      }
+    }
+
     function inferRootFolderName(files) {
       const first = files[0];
       const relative = String(first.webkitRelativePath || "");
@@ -987,12 +1022,15 @@ Rules:
 
     async function scanFolder(isRescan) {
       if (!state.handles.cardFolder && !state.importedFiles.length) {
-        toast("Choose a character folder first.", true);
+        toast("Choose a character folder or single card first.", true);
         return;
       }
       const startedAt = Date.now();
       try {
-        setBusy(true, isRescan ? "Rescanning folder..." : "Scanning folder...");
+        const scanLabel = state.folderMode === "single"
+          ? (isRescan ? "Reopening single card..." : "Opening single card...")
+          : (isRescan ? "Rescanning folder..." : "Scanning folder...");
+        setBusy(true, scanLabel);
         const scanned = [];
         if (state.handles.cardFolder) {
           for await (const entry of walkDirectory(state.handles.cardFolder)) {
@@ -2342,6 +2380,7 @@ Rules:
       document.body.style.cursor = isBusy ? "progress" : "";
       const support = getRuntimeSupport();
       els.pickFolderBtn.disabled = isBusy || !support.canImportFolder;
+      els.pickSingleCardBtn.disabled = isBusy;
       els.pickWorldBtn.disabled = isBusy || !support.canPickWorldFolder;
       els.rescanBtn.disabled = isBusy || (!state.handles.cardFolder && !state.importedFiles.length);
       els.analyzeAllBtn.disabled = isBusy || !state.cards.length;
