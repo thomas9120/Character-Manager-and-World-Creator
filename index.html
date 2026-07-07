@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' http: https:; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Character Card Manager</title>
   <style>
@@ -561,6 +562,8 @@
           <button id="rescanBtn" class="btn-secondary" disabled>Rescan Folder</button>
           <button id="pickWorldBtn" class="btn-good">Choose World Info Folder</button>
           <button id="testLlmBtn" class="btn-secondary">Test llama.cpp</button>
+          <button id="exportLibraryBtn" class="btn-secondary" disabled>Export Library</button>
+          <button id="importLibraryBtn" class="btn-secondary">Import Library</button>
         </div>
       </div>
       <div class="status-grid">
@@ -735,11 +738,13 @@
 
   <input id="folderInput" class="hidden" type="file" webkitdirectory multiple>
   <input id="singleCardInput" class="hidden" type="file" accept=".json,.png,application/json,image/png">
+  <input id="libraryInput" class="hidden" type="file" accept=".json,application/json">
 
   <script>
     const STORAGE_KEY = "character-card-manager-v1";
     const CACHE_MAX_ENTRIES = 250;
     const SEARCH_DEBOUNCE_MS = 150;
+    const WALK_MAX_DEPTH = 32;
     const STOP_WORDS = new Set([
       "the", "and", "that", "with", "have", "this", "from", "your", "they", "their", "about", "would", "there",
       "which", "when", "them", "then", "into", "while", "where", "what", "will", "were", "been", "being", "also",
@@ -833,7 +838,7 @@ Rules:
         "llmModelLabel", "llmTemperature", "llmTopP", "llmTimeout", "llmEndpoint", "saveSettingsBtn",
         "resetPromptsBtn", "analysisPrompt", "worldPrompt", "queueList", "queueSummary", "analyzeAllBtn", "stopQueueBtn",
         "visibleCount", "cardList", "analyzeSelectedBtn", "extractWorldBtn", "exportAcceptedBtn", "cardDetail",
-        "folderInput", "singleCardInput"
+        "folderInput", "singleCardInput", "exportLibraryBtn", "importLibraryBtn", "libraryInput"
       ];
       for (const id of ids) {
         els[id] = document.getElementById(id);
@@ -874,6 +879,12 @@ Rules:
       els.exportAcceptedBtn.addEventListener("click", exportAcceptedWorldEntries);
       els.folderInput.addEventListener("change", importFolderFromInput);
       els.singleCardInput.addEventListener("change", importSingleCardFromInput);
+      els.exportLibraryBtn.addEventListener("click", exportLibrary);
+      els.importLibraryBtn.addEventListener("click", () => {
+        els.libraryInput.value = "";
+        els.libraryInput.click();
+      });
+      els.libraryInput.addEventListener("change", importLibraryFromInput);
     }
 
     function loadInitialSettings() {
@@ -1137,11 +1148,14 @@ Rules:
       }
     }
 
-    async function* walkDirectory(rootHandle, prefix = "") {
+    async function* walkDirectory(rootHandle, prefix = "", depth = 0) {
+      if (depth > WALK_MAX_DEPTH) {
+        return;
+      }
       for await (const [name, handle] of rootHandle.entries()) {
         const path = prefix ? `${prefix}/${name}` : name;
         if (handle.kind === "directory") {
-          yield* walkDirectory(handle, path);
+          yield* walkDirectory(handle, path, depth + 1);
         } else {
           yield { path, handle, kind: "file" };
         }
@@ -1515,7 +1529,12 @@ Rules:
     }
 
     function getFileExtension(name) {
-      return name.split(".").pop().toLowerCase();
+      const text = String(name);
+      const dot = text.lastIndexOf(".");
+      if (dot < 0 || dot === text.length - 1) {
+        return "";
+      }
+      return text.slice(dot + 1).toLowerCase();
     }
 
     function hashCardIdentity(path, name, sourceType, description) {
@@ -2436,8 +2455,8 @@ Rules:
       return `${header}${entry.content}\n`;
     }
 
-    function downloadTextFile(fileName, contents) {
-      const blob = new Blob([contents], { type: "text/markdown;charset=utf-8" });
+    function downloadTextFile(fileName, contents, type = "text/markdown;charset=utf-8") {
+      const blob = new Blob([contents], { type });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -2448,12 +2467,105 @@ Rules:
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    function exportLibrary() {
+      if (!state.cards.length) {
+        toast("No cards to export yet. Scan a folder or import a library first.", true);
+        return;
+      }
+      const payload = {
+        app: "character-card-manager",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        settings: {
+          llmBaseUrl: state.settings.llmBaseUrl,
+          llmModelLabel: state.settings.llmModelLabel,
+          llmTemperature: state.settings.llmTemperature,
+          llmTopP: state.settings.llmTopP,
+          llmTimeout: state.settings.llmTimeout,
+          llmEndpoint: state.settings.llmEndpoint,
+          analysisPrompt: state.settings.analysisPrompt,
+          worldPrompt: state.settings.worldPrompt
+        },
+        cards: state.cards
+      };
+      const json = JSON.stringify(payload, null, 2);
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadTextFile(`character-library-${stamp}.json`, json, "application/json;charset=utf-8");
+      toast(`Exported ${state.cards.length} card${state.cards.length === 1 ? "" : "s"} to a JSON file.`);
+    }
+
+    function importLibraryFromInput(event) {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      importLibraryFromFile(file).catch((error) => {
+        toast(`Could not import library: ${error?.message || error}`, true);
+      });
+    }
+
+    async function importLibraryFromFile(file) {
+      let payload;
+      try {
+        payload = JSON.parse(await file.text());
+      } catch (error) {
+        toast(`That file is not valid JSON: ${error.message}`, true);
+        return;
+      }
+      if (!payload || typeof payload !== "object" || !Array.isArray(payload.cards)) {
+        toast("That file is not a valid character library export.", true);
+        return;
+      }
+      setBusy(true, "Importing library...");
+      try {
+        const existingIds = new Set(state.cards.map((card) => card.id));
+        let added = 0;
+        let skipped = 0;
+        for (const card of payload.cards) {
+          if (!card || typeof card !== "object" || !card.id) {
+            skipped++;
+            continue;
+          }
+          if (existingIds.has(card.id)) {
+            skipped++;
+            continue;
+          }
+          state.cards.push(card);
+          existingIds.add(card.id);
+          state.settings.cache[card.id] = {
+            manual: structuredClone(card.manual || { tags: [], attributes: {}, notes: "" }),
+            analysis: structuredClone(card.analysis || emptyAnalysisState()),
+            lastAnalyzedAt: card.lastAnalyzedAt || "",
+            lastUpdatedAt: card.lastUpdatedAt || new Date().toISOString()
+          };
+          added++;
+        }
+        if (added > 0) {
+          state.cards.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+          if (!state.selectedCardId && state.cards.length) {
+            state.selectedCardId = state.cards[0].id;
+          }
+          state.folderMode = state.folderMode || "library";
+          pruneCacheIfNeeded();
+          applyFilters();
+          savePersistedState();
+        }
+        const parts = [`Imported ${added} card${added === 1 ? "" : "s"}`];
+        if (skipped) {
+          parts.push(`skipped ${skipped} duplicate${skipped === 1 ? "" : "s"}`);
+        }
+        toast(parts.join(", ") + ".");
+      } finally {
+        setBusy(false);
+      }
+    }
+
     async function callLlm(messages) {
       const controller = new AbortController();
       state.activeAbortController = controller;
       const timeout = window.setTimeout(() => controller.abort(), state.settings.llmTimeout);
+      const endpoint = `${state.settings.llmBaseUrl}${normalizeEndpoint(state.settings.llmEndpoint)}`;
       try {
-        const endpoint = `${state.settings.llmBaseUrl}${normalizeEndpoint(state.settings.llmEndpoint)}`;
         const response = await fetch(endpoint, {
           method: "POST",
           headers: {
@@ -2480,6 +2592,9 @@ Rules:
       } catch (error) {
         if (error.name === "AbortError") {
           throw new Error(state.stopRequested ? "Analysis stopped by user." : "Request timed out.");
+        }
+        if (error instanceof TypeError) {
+          throw new Error(`Could not reach the LLM server at ${endpoint}. Check that it is running and allows CORS from this page, then try again.`);
         }
         throw error;
       } finally {
@@ -2622,6 +2737,7 @@ Rules:
       els.analyzeFolderBtn.disabled = isBusy || !(state.folderMode === "handle" || state.folderMode === "upload") || !state.cards.length || state.queueActive;
       els.pickWorldBtn.disabled = isBusy || !support.canPickWorldFolder;
       els.rescanBtn.disabled = isBusy || (!state.handles.cardFolder && !state.importedFiles.length);
+      els.exportLibraryBtn.disabled = isBusy || !state.cards.length;
       els.analyzeAllBtn.disabled = isBusy || !state.cards.length || state.queueActive;
       els.analyzeSelectedBtn.disabled = isBusy || !getSelectedCard();
       els.extractWorldBtn.disabled = isBusy || !getSelectedCard();
