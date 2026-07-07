@@ -2,8 +2,10 @@
   "name": "character-card-manager",
   "private": true,
   "description": "Browser app for organizing SillyTavern-style character cards",
+  "type": "module",
   "scripts": {
-    "lint": "eslint js/"
+    "lint": "eslint js/",
+    "test": "node --test"
   },
   "devDependencies": {
     "eslint": "^9.0.0"
