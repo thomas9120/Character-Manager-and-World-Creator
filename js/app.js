@@ -3,7 +3,7 @@ import { state, els } from './state.js';
 import { debounce } from './format.js';
 import { bindElements, updateBrowserSupport } from './dom.js';
 import { applyFilters, renderAll, renderQueue } from './render.js';
-import { loadInitialSettings, loadSettingsIntoUi, saveSettingsFromUi, resetPromptDefaults } from './settings.js';
+import { loadInitialSettings, loadSettingsIntoUi, saveSettingsFromUi, resetPromptDefaults, flushPersistedSave } from './settings.js';
 import { pickCardFolder, pickSingleCard, importFolderFromInput, importSingleCardFromInput, pickWorldFolder, scanFolder } from './scan.js';
 import { analyzeAllCards, analyzeSelectedCard, analyzeFolderCards, extractWorldInfoForSelected } from './analysis.js';
 import { exportAcceptedWorldEntries, exportLibrary, importLibraryFromInput } from './export.js';
@@ -35,8 +35,8 @@ function bindEvents() {
   els.analyzeAllBtn.addEventListener("click", analyzeAllCards);
   els.stopQueueBtn.addEventListener("click", () => {
     state.stopRequested = true;
-    if (state.activeAbortController) {
-      state.activeAbortController.abort();
+    for (const controller of state.activeAbortControllers) {
+      controller.abort();
     }
     renderQueue();
   });
@@ -61,6 +61,7 @@ function init() {
   bindEvents();
   applyFilters();
   renderAll();
+  window.addEventListener("pagehide", flushPersistedSave);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -135,6 +135,18 @@
                 <input id="llmEndpoint" type="text" placeholder="/v1/chat/completions">
               </div>
             </div>
+            <div class="split">
+              <div class="field">
+                <label for="llmMaxTokens">Max response tokens</label>
+                <input id="llmMaxTokens" type="number" min="64" max="8192" step="64">
+                <span class="muted tiny">Caps generation length. Lower = faster. 768 covers analysis + world extraction.</span>
+              </div>
+              <div class="field">
+                <label for="llmParallelWorkers">Parallel workers</label>
+                <input id="llmParallelWorkers" type="number" min="1" max="8" step="1">
+                <span class="muted tiny">Only raise above 1 if your llama.cpp server runs multiple slots (--parallel/--cont batching).</span>
+              </div>
+            </div>
             <div class="field">
               <label><input id="llmJsonMode" type="checkbox" checked> Send JSON mode (<code>response_format</code>)</label>
               <span class="muted tiny">Uncheck for servers that reject it (some llama.cpp builds, many cloud OpenAI-compatible endpoints).</span>
