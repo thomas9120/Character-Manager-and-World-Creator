@@ -1,6 +1,6 @@
 # Character Card Manager
 
-Single-file browser app for organizing SillyTavern-style character cards from `.json` and `.png` files.
+Browser app for organizing SillyTavern-style character cards from `.json` and `.png` files. CSS, HTML, and JS are split into separate files — no build step, no bundler.
 
 It can:
 - Scan a character-card folder and build a searchable rolodex
@@ -11,9 +11,31 @@ It can:
 
 ## Files
 
-- `index.html`: the full app
-- `start.bat`: starts a local web server on port `8000`
-- `stop.bat`: stops the process listening on port `8000`
+- `index.html` — app shell (HTML + stylesheet link + module entry point)
+- `styles/app.css` — all styles
+- `js/` — ES modules (13 files)
+- `start.bat` — starts a local web server on port `8000`
+- `stop.bat` — stops the process listening on port `8000`
+
+## Module Layout
+
+All application logic lives in `js/` as native ES modules loaded directly by the browser (no build step).
+
+| Module | Responsibility |
+|---|---|
+| `app.js` | Entry point, event bindings, init sequence |
+| `constants.js` | App-wide constants (storage keys, limits, defaults) |
+| `state.js` | Shared mutable state (`state` and `els` objects) |
+| `format.js` | String formatting, escaping, parsing utilities |
+| `png.js` | PNG metadata parsing and extraction |
+| `cards.js` | Card data model, caching, normalization |
+| `settings.js` | localStorage persistence, settings UI sync |
+| `dom.js` | DOM element binding, toasts, browser support detection |
+| `render.js` | All rendering (card list, detail, facets, queue) |
+| `llm.js` | llama.cpp API client |
+| `scan.js` | File/folder scanning and import |
+| `analysis.js` | Card analysis and world-info extraction |
+| `export.js` | Library export/import, world-entry export |
 
 ## Running Locally
 
