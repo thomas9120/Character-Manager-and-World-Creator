@@ -739,6 +739,14 @@
   <script>
     const STORAGE_KEY = "character-card-manager-v1";
     const CACHE_MAX_ENTRIES = 250;
+    const SEARCH_DEBOUNCE_MS = 150;
+    const STOP_WORDS = new Set([
+      "the", "and", "that", "with", "have", "this", "from", "your", "they", "their", "about", "would", "there",
+      "which", "when", "them", "then", "into", "while", "where", "what", "will", "were", "been", "being", "also",
+      "only", "more", "some", "such", "than", "very", "just", "like", "into", "onto", "upon", "over", "under",
+      "each", "hers", "his", "her", "she", "him", "you", "our", "ours", "for", "are", "not", "can", "its", "who",
+      "how", "why", "out", "all", "any", "may", "because", "through", "across", "between", "after", "before"
+    ]);
 
     const DEFAULT_ANALYSIS_PROMPT = `You are organizing a roleplay character card library.
 Return valid JSON only with this shape:
@@ -794,6 +802,7 @@ Rules:
       queue: [],
       queueActive: false,
       stopRequested: false,
+      activeAbortController: null,
       activeFilters: {
         search: "",
         sourceType: "",
@@ -842,7 +851,7 @@ Rules:
       els.resetPromptsBtn.addEventListener("click", resetPromptDefaults);
       els.searchInput.addEventListener("input", (event) => {
         state.activeFilters.search = event.target.value.trim().toLowerCase();
-        applyFilters();
+        debounceApplyFilters();
       });
       els.sourceFilter.addEventListener("change", (event) => {
         state.activeFilters.sourceType = event.target.value;
@@ -855,6 +864,9 @@ Rules:
       els.analyzeAllBtn.addEventListener("click", analyzeAllCards);
       els.stopQueueBtn.addEventListener("click", () => {
         state.stopRequested = true;
+        if (state.activeAbortController) {
+          state.activeAbortController.abort();
+        }
         renderQueue();
       });
       els.analyzeSelectedBtn.addEventListener("click", analyzeSelectedCard);
@@ -1067,7 +1079,6 @@ Rules:
         toast("Choose a character folder or single card first.", true);
         return;
       }
-      const startedAt = Date.now();
       try {
         const scanLabel = state.folderMode === "single"
           ? (isRescan ? "Reopening single card..." : "Opening single card...")
@@ -1115,7 +1126,6 @@ Rules:
 
         state.cards = scanned.sort((a, b) => a.displayName.localeCompare(b.displayName));
         state.selectedCardId = state.cards[0]?.id || null;
-        state.settings.lastScan = startedAt;
         applyFilters();
         savePersistedState();
         toast(`Scanned ${state.cards.length} card file${state.cards.length === 1 ? "" : "s"}.`);
@@ -1535,9 +1545,15 @@ Rules:
       const texts = [];
       let offset = 8;
       while (offset < view.byteLength) {
+        if (offset + 8 > view.byteLength) {
+          throw new Error("Truncated PNG: chunk header runs past end of file.");
+        }
         const length = view.getUint32(offset);
         const type = decoder.decode(new Uint8Array(buffer, offset + 4, 4));
         const dataOffset = offset + 8;
+        if (dataOffset + length > view.byteLength) {
+          throw new Error(`Corrupt PNG: "${type}" chunk length (${length}) exceeds file bounds.`);
+        }
         if (type === "tEXt") {
           const bytes = new Uint8Array(buffer, dataOffset, length);
           const nul = bytes.indexOf(0);
@@ -1695,6 +1711,21 @@ Rules:
       }
       return null;
     }
+
+    function debounce(fn, wait) {
+      let timer = null;
+      return function (...args) {
+        if (timer !== null) {
+          window.clearTimeout(timer);
+        }
+        timer = window.setTimeout(() => {
+          timer = null;
+          fn.apply(this, args);
+        }, wait);
+      };
+    }
+
+    const debounceApplyFilters = debounce(() => applyFilters(), SEARCH_DEBOUNCE_MS);
 
     function applyFilters() {
       const search = state.activeFilters.search;
@@ -2385,13 +2416,18 @@ Rules:
       }, null, 2);
     }
 
+    function yamlScalar(value) {
+      const text = String(value ?? "");
+      return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ")}"`;
+    }
+
     function buildWorldEntryDocument(card, entry) {
       const header = [
         "---",
-        `title: ${entry.title}`,
-        `source_card: ${card.displayName}`,
-        `source_path: ${card.sourcePath}`,
-        `keywords: ${entry.keywords.join(", ")}`,
+        `title: ${yamlScalar(entry.title)}`,
+        `source_card: ${yamlScalar(card.displayName)}`,
+        `source_path: ${yamlScalar(card.sourcePath)}`,
+        `keywords: ${yamlScalar(entry.keywords.join(", "))}`,
         `confidence: ${entry.confidence}`,
         `exported_at: ${new Date().toISOString()}`,
         "---",
@@ -2414,6 +2450,7 @@ Rules:
 
     async function callLlm(messages) {
       const controller = new AbortController();
+      state.activeAbortController = controller;
       const timeout = window.setTimeout(() => controller.abort(), state.settings.llmTimeout);
       try {
         const endpoint = `${state.settings.llmBaseUrl}${normalizeEndpoint(state.settings.llmEndpoint)}`;
@@ -2442,11 +2479,14 @@ Rules:
         return content;
       } catch (error) {
         if (error.name === "AbortError") {
-          throw new Error("Request timed out.");
+          throw new Error(state.stopRequested ? "Analysis stopped by user." : "Request timed out.");
         }
         throw error;
       } finally {
         window.clearTimeout(timeout);
+        if (state.activeAbortController === controller) {
+          state.activeAbortController = null;
+        }
       }
     }
 
@@ -2656,14 +2696,6 @@ Rules:
         message: "Read-only folder import ready; world exports will download files"
       };
     }
-
-    const STOP_WORDS = new Set([
-      "the", "and", "that", "with", "have", "this", "from", "your", "they", "their", "about", "would", "there",
-      "which", "when", "them", "then", "into", "while", "where", "what", "will", "were", "been", "being", "also",
-      "only", "more", "some", "such", "than", "very", "just", "like", "into", "onto", "upon", "over", "under",
-      "each", "hers", "his", "her", "she", "him", "you", "our", "ours", "for", "are", "not", "can", "its", "who",
-      "how", "why", "out", "all", "any", "may", "because", "through", "across", "between", "after", "before"
-    ]);
   </script>
 </body>
 </html>
