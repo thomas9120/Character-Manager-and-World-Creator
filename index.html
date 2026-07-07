@@ -738,6 +738,7 @@
 
   <script>
     const STORAGE_KEY = "character-card-manager-v1";
+    const CACHE_MAX_ENTRIES = 250;
 
     const DEFAULT_ANALYSIS_PROMPT = `You are organizing a roleplay character card library.
 Return valid JSON only with this shape:
@@ -881,21 +882,31 @@ Rules:
     }
 
     function savePersistedState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        settings: {
-          llmBaseUrl: state.settings.llmBaseUrl,
-          llmModelLabel: state.settings.llmModelLabel,
-          llmTemperature: state.settings.llmTemperature,
-          llmTopP: state.settings.llmTopP,
-          llmTimeout: state.settings.llmTimeout,
-          llmEndpoint: state.settings.llmEndpoint,
-          analysisPrompt: state.settings.analysisPrompt,
-          worldPrompt: state.settings.worldPrompt
-        },
-        cache: state.settings.cache,
-        lastFolderName: state.handles.cardFolder?.name || state.settings.lastFolderName || "",
-        lastWorldFolderName: state.handles.worldFolder?.name || state.settings.lastWorldFolderName || ""
-      }));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          settings: {
+            llmBaseUrl: state.settings.llmBaseUrl,
+            llmModelLabel: state.settings.llmModelLabel,
+            llmTemperature: state.settings.llmTemperature,
+            llmTopP: state.settings.llmTopP,
+            llmTimeout: state.settings.llmTimeout,
+            llmEndpoint: state.settings.llmEndpoint,
+            analysisPrompt: state.settings.analysisPrompt,
+            worldPrompt: state.settings.worldPrompt
+          },
+          cache: state.settings.cache,
+          lastFolderName: state.handles.cardFolder?.name || state.settings.lastFolderName || "",
+          lastWorldFolderName: state.handles.worldFolder?.name || state.settings.lastWorldFolderName || ""
+        }));
+      } catch (error) {
+        const name = error?.name || "";
+        if (name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED") {
+          toast("Local storage is full. Recent changes are in-memory only. Consider clearing older cards or exporting your work.", true);
+        } else {
+          toast(`Could not save settings locally: ${error?.message || error}`, true);
+        }
+        console.error(error);
+      }
     }
 
     function loadSettingsIntoUi() {
@@ -911,7 +922,7 @@ Rules:
       els.worldFolderName.textContent = state.settings.lastWorldFolderName || "Not selected";
     }
 
-    function saveSettingsFromUi() {
+    function syncSettingsFromUi() {
       state.settings.llmBaseUrl = els.llmBaseUrl.value.trim().replace(/\/+$/, "");
       state.settings.llmModelLabel = els.llmModelLabel.value.trim() || "Local llama.cpp server";
       state.settings.llmTemperature = clampNumber(els.llmTemperature.value, 0, 2, 0.2);
@@ -920,6 +931,10 @@ Rules:
       state.settings.llmEndpoint = normalizeEndpoint(els.llmEndpoint.value);
       state.settings.analysisPrompt = els.analysisPrompt.value.trim() || DEFAULT_ANALYSIS_PROMPT;
       state.settings.worldPrompt = els.worldPrompt.value.trim() || DEFAULT_WORLD_PROMPT;
+    }
+
+    function saveSettingsFromUi() {
+      syncSettingsFromUi();
       savePersistedState();
       toast("Settings saved locally.");
     }
@@ -1331,7 +1346,23 @@ Rules:
         lastAnalyzedAt: card.lastAnalyzedAt,
         lastUpdatedAt: new Date().toISOString()
       };
+      pruneCacheIfNeeded();
       savePersistedState();
+    }
+
+    function pruneCacheIfNeeded() {
+      const cache = state.settings.cache;
+      const keys = Object.keys(cache);
+      const overflow = keys.length - CACHE_MAX_ENTRIES;
+      if (overflow <= 0) {
+        return;
+      }
+      const sortedByDate = keys
+        .map((key) => ({ key, lastUpdatedAt: cache[key]?.lastUpdatedAt || "" }))
+        .sort((a, b) => (a.lastUpdatedAt < b.lastUpdatedAt ? -1 : 1));
+      for (let index = 0; index < overflow; index += 1) {
+        delete cache[sortedByDate[index].key];
+      }
     }
 
     function emptyAnalysisState() {
@@ -2093,7 +2124,7 @@ Rules:
     }
 
     async function testLlmConnection() {
-      saveSettingsFromUi();
+      syncSettingsFromUi();
       setBusy(true, "Testing llama.cpp connection...");
       try {
         const response = await callLlm([
@@ -2218,7 +2249,7 @@ Rules:
     }
 
     async function analyzeCard(card) {
-      saveSettingsFromUi();
+      syncSettingsFromUi();
       card.analysis.status = "running";
       card.analysis.lastError = "";
       persistCard(card);
@@ -2254,7 +2285,7 @@ Rules:
     }
 
     async function extractWorldInfo(card) {
-      saveSettingsFromUi();
+      syncSettingsFromUi();
       card.analysis.lastError = "";
       card.analysis.status = "running";
       persistCard(card);
