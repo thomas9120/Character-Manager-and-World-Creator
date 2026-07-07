@@ -9,32 +9,24 @@
 </head>
 <body>
   <main class="shell">
-    <section class="panel masthead">
-      <div class="hero">
-        <h1>Character Card Rolodex</h1>
-        <p>
-          Scan a local folder of SillyTavern-style character cards, organize them with manual and model-assisted metadata,
-          and extract world info into clean text files without leaving the browser.
-        </p>
-        <div class="hero-actions">
-          <button id="pickFolderBtn" class="btn-primary">Open Character Folder</button>
-          <button id="pickSingleCardBtn" class="btn-secondary">Open Single Card</button>
-          <button id="analyzeFolderBtn" class="btn-good" disabled>Analyze Folder</button>
-          <button id="rescanBtn" class="btn-secondary" disabled>Rescan Folder</button>
-          <button id="pickWorldBtn" class="btn-good">Choose World Info Folder</button>
-          <button id="testLlmBtn" class="btn-secondary">Test llama.cpp</button>
-          <button id="exportLibraryBtn" class="btn-secondary" disabled>Export Library</button>
-          <button id="importLibraryBtn" class="btn-secondary">Import Library</button>
+    <section class="panel app-header">
+      <div class="title-block">
+        <h1>Character Card Manager</h1>
+        <div class="header-meta">
+          <span id="browserSupportBadge" class="status-badge"></span>
+          <span>Cards: <span id="folderName">Not selected</span></span>
+          <span>World info: <span id="worldFolderName">Not selected</span></span>
+          <span>Last scan: <span id="lastScanValue">Never</span></span>
         </div>
       </div>
-      <div class="status-grid">
+      <div class="status-strip" aria-label="Library status">
         <div class="stat-card">
           <strong id="cardCount">0</strong>
-          <span>Indexed cards</span>
+          <span>Cards</span>
         </div>
         <div class="stat-card">
           <strong id="analysisCount">0</strong>
-          <span>Analyzed cards</span>
+          <span>Analyzed</span>
         </div>
         <div class="stat-card">
           <strong id="worldCount">0</strong>
@@ -42,146 +34,166 @@
         </div>
         <div class="stat-card">
           <strong id="queueCount">0</strong>
-          <span>Queue items</span>
+          <span>Queued</span>
+        </div>
+      </div>
+      <div class="action-bar" aria-label="Primary actions">
+        <div class="action-group">
+          <span class="action-label">Library</span>
+          <button id="pickFolderBtn" class="btn-primary">Open Folder</button>
+          <button id="pickSingleCardBtn" class="btn-secondary">Open Card</button>
+          <button id="rescanBtn" class="btn-secondary" disabled>Rescan</button>
+          <button id="importLibraryBtn" class="btn-secondary">Import</button>
+          <button id="exportLibraryBtn" class="btn-secondary" disabled>Export</button>
+        </div>
+        <div class="action-group">
+          <span class="action-label">Analysis</span>
+          <button id="analyzeFolderBtn" class="btn-good" disabled>Analyze Folder</button>
+          <button id="testLlmBtn" class="btn-secondary">Test llama.cpp</button>
+        </div>
+        <div class="action-group">
+          <span class="action-label">World Info</span>
+          <button id="pickWorldBtn" class="btn-good">Choose Folder</button>
         </div>
       </div>
     </section>
 
     <aside class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">Controls</h2>
-        <span id="browserSupportBadge" class="status-badge"></span>
+        <h2 class="panel-title">Browse</h2>
+      </div>
+      <div class="tab-list" aria-label="Control sections">
+        <button class="tab-button active" data-control-tab="browse">Browse</button>
+        <button class="tab-button" data-control-tab="settings">Settings</button>
+        <button class="tab-button" data-control-tab="queue">Queue</button>
       </div>
       <div class="panel-body stack">
-        <div class="controls-grid">
-          <div class="field">
-            <label for="searchInput">Search Cards</label>
-            <input id="searchInput" type="search" placeholder="Name, traits, tags, lore, path...">
-          </div>
-          <div class="split">
+        <div class="control-panel-section active" data-control-panel="browse">
+          <div class="controls-grid">
             <div class="field">
-              <label for="sourceFilter">Source Type</label>
-              <select id="sourceFilter">
-                <option value="">All</option>
-                <option value="json">JSON</option>
-                <option value="png">PNG</option>
-              </select>
+              <label for="searchInput">Search Cards</label>
+              <input id="searchInput" type="search" placeholder="Name, traits, tags, lore, path...">
+            </div>
+            <div class="split">
+              <div class="field">
+                <label for="sourceFilter">Source Type</label>
+                <select id="sourceFilter">
+                  <option value="">All</option>
+                  <option value="json">JSON</option>
+                  <option value="png">PNG</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="analysisFilter">Analysis Status</label>
+                <select id="analysisFilter">
+                  <option value="">Any</option>
+                  <option value="analyzed">Analyzed</option>
+                  <option value="pending">Not analyzed</option>
+                  <option value="warning">Parser warning</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Facets</h3>
+            <div class="field">
+              <label>Manual Tags</label>
+              <div id="manualFacetList" class="facet-list"></div>
             </div>
             <div class="field">
-              <label for="analysisFilter">Analysis Status</label>
-              <select id="analysisFilter">
-                <option value="">Any</option>
-                <option value="analyzed">Analyzed</option>
-                <option value="pending">Not analyzed</option>
-                <option value="warning">Parser warning</option>
-              </select>
+              <label>Auto Tags</label>
+              <div id="autoFacetList" class="facet-list"></div>
+            </div>
+            <div class="field">
+              <label>Folders</label>
+              <div id="folderFacetList" class="facet-list"></div>
             </div>
           </div>
         </div>
 
-        <div class="section">
-          <h3>Folder State</h3>
-          <div class="stack tiny muted">
-            <div>Cards: <span id="folderName">Not selected</span></div>
-            <div>World info: <span id="worldFolderName">Not selected</span></div>
-            <div>Last scan: <span id="lastScanValue">Never</span></div>
+        <div class="control-panel-section" data-control-panel="settings">
+          <div class="section">
+            <h3>llama.cpp Settings</h3>
+            <div class="stack">
+              <div class="field">
+                <label for="llmBaseUrl">Base URL</label>
+                <input id="llmBaseUrl" type="url" placeholder="http://127.0.0.1:8080">
+              </div>
+              <div class="field">
+                <label for="llmModelLabel">Model Label</label>
+                <input id="llmModelLabel" type="text" placeholder="Local llama server">
+              </div>
+              <div class="split">
+                <div class="field">
+                  <label for="llmTemperature">Temperature</label>
+                  <input id="llmTemperature" type="number" min="0" max="2" step="0.1">
+                </div>
+                <div class="field">
+                  <label for="llmTopP">Top P</label>
+                  <input id="llmTopP" type="number" min="0" max="1" step="0.05">
+                </div>
+              </div>
+              <div class="split">
+                <div class="field">
+                  <label for="llmTimeout">Timeout (ms)</label>
+                  <input id="llmTimeout" type="number" min="1000" step="1000">
+                </div>
+                <div class="field">
+                  <label for="llmEndpoint">Endpoint Path</label>
+                  <input id="llmEndpoint" type="text" placeholder="/v1/chat/completions">
+                </div>
+              </div>
+              <div class="split">
+                <div class="field">
+                  <label for="llmMaxTokens">Max response tokens</label>
+                  <input id="llmMaxTokens" type="number" min="64" max="8192" step="64">
+                  <span class="muted tiny">Caps generation length. Lower = faster. 768 covers analysis + world extraction.</span>
+                </div>
+                <div class="field">
+                  <label for="llmParallelWorkers">Parallel workers</label>
+                  <input id="llmParallelWorkers" type="number" min="1" max="8" step="1">
+                  <span class="muted tiny">Only raise above 1 if your llama.cpp server runs multiple slots (--parallel/--cont batching).</span>
+                </div>
+              </div>
+              <div class="field">
+                <label><input id="llmJsonMode" type="checkbox" checked> Send JSON mode (<code>response_format</code>)</label>
+                <span class="muted tiny">Uncheck for servers that reject it (some llama.cpp builds, many cloud OpenAI-compatible endpoints).</span>
+              </div>
+              <div class="toolbar">
+                <button id="saveSettingsBtn" class="btn-secondary">Save Settings</button>
+                <button id="resetPromptsBtn" class="btn-ghost">Reset Prompts</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Prompt Templates</h3>
+            <div class="stack">
+              <div class="field">
+                <label for="analysisPrompt">Organizer Prompt</label>
+                <textarea id="analysisPrompt"></textarea>
+              </div>
+              <div class="field">
+                <label for="worldPrompt">World Info Prompt</label>
+                <textarea id="worldPrompt"></textarea>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="section">
-          <h3>Facets</h3>
-          <div class="field">
-            <label>Manual Tags</label>
-            <div id="manualFacetList" class="facet-list"></div>
-          </div>
-          <div class="field">
-            <label>Auto Tags</label>
-            <div id="autoFacetList" class="facet-list"></div>
-          </div>
-          <div class="field">
-            <label>Folders</label>
-            <div id="folderFacetList" class="facet-list"></div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h3>llama.cpp Settings</h3>
-          <div class="stack">
-            <div class="field">
-              <label for="llmBaseUrl">Base URL</label>
-              <input id="llmBaseUrl" type="url" placeholder="http://127.0.0.1:8080">
-            </div>
-            <div class="field">
-              <label for="llmModelLabel">Model Label</label>
-              <input id="llmModelLabel" type="text" placeholder="Local llama server">
-            </div>
-            <div class="split">
-              <div class="field">
-                <label for="llmTemperature">Temperature</label>
-                <input id="llmTemperature" type="number" min="0" max="2" step="0.1">
-              </div>
-              <div class="field">
-                <label for="llmTopP">Top P</label>
-                <input id="llmTopP" type="number" min="0" max="1" step="0.05">
-              </div>
-            </div>
-            <div class="split">
-              <div class="field">
-                <label for="llmTimeout">Timeout (ms)</label>
-                <input id="llmTimeout" type="number" min="1000" step="1000">
-              </div>
-              <div class="field">
-                <label for="llmEndpoint">Endpoint Path</label>
-                <input id="llmEndpoint" type="text" placeholder="/v1/chat/completions">
-              </div>
-            </div>
-            <div class="split">
-              <div class="field">
-                <label for="llmMaxTokens">Max response tokens</label>
-                <input id="llmMaxTokens" type="number" min="64" max="8192" step="64">
-                <span class="muted tiny">Caps generation length. Lower = faster. 768 covers analysis + world extraction.</span>
-              </div>
-              <div class="field">
-                <label for="llmParallelWorkers">Parallel workers</label>
-                <input id="llmParallelWorkers" type="number" min="1" max="8" step="1">
-                <span class="muted tiny">Only raise above 1 if your llama.cpp server runs multiple slots (--parallel/--cont batching).</span>
-              </div>
-            </div>
-            <div class="field">
-              <label><input id="llmJsonMode" type="checkbox" checked> Send JSON mode (<code>response_format</code>)</label>
-              <span class="muted tiny">Uncheck for servers that reject it (some llama.cpp builds, many cloud OpenAI-compatible endpoints).</span>
-            </div>
+        <div class="control-panel-section" data-control-panel="queue">
+          <div class="section">
+            <h3>Queue</h3>
+            <div id="queueSummary" class="muted tiny">No queued analysis yet.</div>
+            <div class="divider"></div>
             <div class="toolbar">
-              <button id="saveSettingsBtn" class="btn-secondary">Save Settings</button>
-              <button id="resetPromptsBtn" class="btn-ghost">Reset Prompts</button>
+              <button id="analyzeAllBtn" class="btn-primary" disabled>Analyze All</button>
+              <button id="stopQueueBtn" class="btn-danger" disabled>Stop Queue</button>
             </div>
+            <div class="divider"></div>
+            <div id="queueList" class="queue-list"></div>
           </div>
-        </div>
-
-        <div class="section">
-          <h3>Prompt Templates</h3>
-          <div class="stack">
-            <div class="field">
-              <label for="analysisPrompt">Organizer Prompt</label>
-              <textarea id="analysisPrompt"></textarea>
-            </div>
-            <div class="field">
-              <label for="worldPrompt">World Info Prompt</label>
-              <textarea id="worldPrompt"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h3>Queue</h3>
-          <div id="queueSummary" class="muted tiny">No queued analysis yet.</div>
-          <div class="divider"></div>
-          <div class="toolbar">
-            <button id="analyzeAllBtn" class="btn-primary" disabled>Analyze All</button>
-            <button id="stopQueueBtn" class="btn-danger" disabled>Stop Queue</button>
-          </div>
-          <div class="divider"></div>
-          <div id="queueList" class="queue-list"></div>
         </div>
       </div>
     </aside>
@@ -204,6 +216,13 @@
           <button id="extractWorldBtn" class="btn-good" disabled>Extract World Info</button>
           <button id="exportAcceptedBtn" class="btn-secondary" disabled>Export Accepted Entries</button>
         </div>
+      </div>
+      <div class="tab-list detail-tabs" aria-label="Card detail sections">
+        <button class="tab-button active" data-detail-tab="overview">Overview</button>
+        <button class="tab-button" data-detail-tab="manual">Manual</button>
+        <button class="tab-button" data-detail-tab="analysis">Analysis</button>
+        <button class="tab-button" data-detail-tab="world">World Info</button>
+        <button class="tab-button" data-detail-tab="raw">Raw</button>
       </div>
       <div class="panel-body">
         <div id="cardDetail" class="card-detail">

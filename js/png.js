@@ -184,6 +184,7 @@ export function tryParseEmbeddedJson(text) {
     try {
       return JSON.parse(attempt);
     } catch {
+      // Try the next candidate; PNG metadata can include wrappers before JSON.
     }
   }
   return null;

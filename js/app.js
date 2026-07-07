@@ -2,7 +2,7 @@ import { SEARCH_DEBOUNCE_MS } from './constants.js';
 import { state, els } from './state.js';
 import { debounce } from './format.js';
 import { bindElements, updateBrowserSupport } from './dom.js';
-import { applyFilters, renderAll, renderQueue } from './render.js';
+import { applyFilters, renderAll, renderCardDetail, renderQueue, renderUiChrome } from './render.js';
 import { loadInitialSettings, loadSettingsIntoUi, saveSettingsFromUi, resetPromptDefaults, flushPersistedSave } from './settings.js';
 import { pickCardFolder, pickSingleCard, importFolderFromInput, importSingleCardFromInput, pickWorldFolder, scanFolder } from './scan.js';
 import { analyzeAllCards, analyzeSelectedCard, analyzeFolderCards, extractWorldInfoForSelected } from './analysis.js';
@@ -51,6 +51,18 @@ function bindEvents() {
     els.libraryInput.click();
   });
   els.libraryInput.addEventListener("change", importLibraryFromInput);
+  for (const tab of els.controlTabs) {
+    tab.addEventListener("click", (event) => {
+      state.activeControlPanel = event.currentTarget.dataset.controlTab;
+      renderUiChrome();
+    });
+  }
+  for (const tab of els.detailTabs) {
+    tab.addEventListener("click", (event) => {
+      state.activeDetailTab = event.currentTarget.dataset.detailTab;
+      renderCardDetail();
+    });
+  }
 }
 
 function init() {

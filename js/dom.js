@@ -15,6 +15,9 @@ export function bindElements() {
   for (const id of ids) {
     els[id] = document.getElementById(id);
   }
+  els.controlTabs = [...document.querySelectorAll("[data-control-tab]")];
+  els.controlPanels = [...document.querySelectorAll("[data-control-panel]")];
+  els.detailTabs = [...document.querySelectorAll("[data-detail-tab]")];
 }
 
 export function setBusy(isBusy, label = "") {

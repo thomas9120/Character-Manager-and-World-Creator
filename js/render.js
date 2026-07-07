@@ -59,12 +59,29 @@ export function applyFilters() {
 }
 
 export function renderAll() {
+  renderUiChrome();
   renderSummary();
   renderFacets();
   renderCardList();
   renderCardDetail();
   renderQueue();
   updateAnalyzeFolderButton();
+}
+
+export function renderUiChrome() {
+  for (const tab of els.controlTabs || []) {
+    const isActive = tab.dataset.controlTab === state.activeControlPanel;
+    tab.classList.toggle("active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+  }
+  for (const panel of els.controlPanels || []) {
+    panel.classList.toggle("active", panel.dataset.controlPanel === state.activeControlPanel);
+  }
+  for (const tab of els.detailTabs || []) {
+    const isActive = tab.dataset.detailTab === state.activeDetailTab;
+    tab.classList.toggle("active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+  }
 }
 
 export function renderSummary() {
@@ -167,14 +184,37 @@ export function renderCardDetail() {
   els.analyzeSelectedBtn.disabled = !card;
   els.extractWorldBtn.disabled = !card;
   els.exportAcceptedBtn.disabled = !card || !card.analysis.worldEntries.some((entry) => entry.status === "accepted");
+  renderUiChrome();
   if (!card) {
     els.cardDetail.innerHTML = '<div class="empty">No card selected.</div>';
     return;
   }
 
-  const header = document.createElement("section");
-  header.className = "section";
-  header.innerHTML = `
+  if (state.activeDetailTab === "manual") {
+    els.cardDetail.appendChild(renderManualSection(card));
+    return;
+  }
+  if (state.activeDetailTab === "analysis") {
+    els.cardDetail.appendChild(renderAnalysisSection(card));
+    return;
+  }
+  if (state.activeDetailTab === "world") {
+    els.cardDetail.appendChild(renderWorldSection(card));
+    return;
+  }
+  if (state.activeDetailTab === "raw") {
+    els.cardDetail.appendChild(renderPayloadSection(card));
+    return;
+  }
+
+  els.cardDetail.appendChild(renderOverviewSection(card));
+  els.cardDetail.appendChild(renderRawSection(card));
+}
+
+export function renderOverviewSection(card) {
+  const section = document.createElement("section");
+  section.className = "section section-prominent";
+  section.innerHTML = `
     <h3>${escapeHtml(card.displayName)}</h3>
     <div class="pill-row">
       ${renderPills([...card.extracted.tags], "tag")}
@@ -189,13 +229,7 @@ export function renderCardDetail() {
       ${renderKv("Analyzed", card.lastAnalyzedAt ? new Date(card.lastAnalyzedAt).toLocaleString() : "Not yet")}
     </div>
   `;
-  els.cardDetail.appendChild(header);
-
-  els.cardDetail.appendChild(renderRawSection(card));
-  els.cardDetail.appendChild(renderManualSection(card));
-  els.cardDetail.appendChild(renderAnalysisSection(card));
-  els.cardDetail.appendChild(renderWorldSection(card));
-  els.cardDetail.appendChild(renderPayloadSection(card));
+  return section;
 }
 
 export function renderRawSection(card) {

@@ -132,6 +132,9 @@ export function sanitizeObjectValues(input) {
   return output;
 }
 
+const CONTROL_FILE_NAME_CHARS = `${String.fromCharCode(0)}-${String.fromCharCode(31)}`;
+const INVALID_FILE_NAME_CHARS = new RegExp(`[<>:"/\\\\|?*${CONTROL_FILE_NAME_CHARS}]`, "g");
+
 export function sanitizeFileName(name) {
-  return safeString(name).replace(/[<>:"/\\|?*\x00-\x1F]/g, "-").replace(/\s+/g, "-").slice(0, 80) || "world-entry";
+  return safeString(name).replace(INVALID_FILE_NAME_CHARS, "-").replace(/\s+/g, "-").slice(0, 80) || "world-entry";
 }

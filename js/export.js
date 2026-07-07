@@ -1,6 +1,6 @@
-import { state, els } from './state.js';
+import { state } from './state.js';
 import { getSelectedCard, getRuntimeSupport, toast, setBusy } from './dom.js';
-import { sanitizeFileName, safeString } from './format.js';
+import { sanitizeFileName } from './format.js';
 import { persistCard, emptyAnalysisState, pruneCacheIfNeeded } from './cards.js';
 import { renderAll, applyFilters } from './render.js';
 import { savePersistedState } from './settings.js';

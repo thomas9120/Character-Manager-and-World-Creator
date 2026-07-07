@@ -23,5 +23,7 @@ export const state = {
     autoTag: "",
     folder: ""
   },
+  activeControlPanel: "browse",
+  activeDetailTab: "overview",
   uiMessage: ""
 };
