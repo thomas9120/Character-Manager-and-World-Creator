@@ -2,7 +2,7 @@ export const STORAGE_KEY = "character-card-manager-v1";
 export const CACHE_MAX_ENTRIES = 250;
 export const SEARCH_DEBOUNCE_MS = 150;
 export const WALK_MAX_DEPTH = 32;
-export const DEFAULT_LLM_MAX_TOKENS = 768;
+export const DEFAULT_LLM_MAX_TOKENS = 2048;
 export const DEFAULT_LLM_PARALLEL_WORKERS = 1;
 export const STOP_WORDS = new Set([
   "the", "and", "that", "with", "have", "this", "from", "your", "they", "their", "about", "would", "there",

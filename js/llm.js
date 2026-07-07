@@ -83,7 +83,7 @@ export function parseJsonResponse(text) {
         return nested;
       }
     }
-    throw new Error("LLM response was not valid JSON.");
+    throw new Error(`LLM response was not valid JSON. Raw response starts with: ${text.slice(0, 200)}`);
   }
   return parsed;
 }
