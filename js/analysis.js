@@ -1,12 +1,13 @@
 import { state } from './state.js';
 import { getSelectedCard, toast } from './dom.js';
-import { renderAll, renderQueue, countQueueStatuses } from './render.js';
-import { syncSettingsFromUi } from './settings.js';
+import { renderAll, renderQueue, renderSummary, countQueueStatuses } from './render.js';
+import { syncSettingsFromUi, flushPersistedSave } from './settings.js';
 import { callLlm, parseJsonResponse } from './llm.js';
 import { collectStringArray, persistCard } from './cards.js';
 import { safeString, sanitizeObjectValues, normalizeConfidence, hashString } from './format.js';
 
 export async function analyzeSelectedCard() {
+  syncSettingsFromUi();
   const card = getSelectedCard();
   if (!card) {
     return;
@@ -20,6 +21,7 @@ export async function analyzeFolderCards() {
 }
 
 export async function extractWorldInfoForSelected() {
+  syncSettingsFromUi();
   const card = getSelectedCard();
   if (!card) {
     return;
@@ -38,27 +40,30 @@ export async function analyzeAllCards(options = {}) {
     toast("Analyze Folder is only available after loading a folder.", true);
     return;
   }
+  syncSettingsFromUi();
   state.queue = buildAnalysisQueue(mode);
   state.queueActive = true;
   state.stopRequested = false;
   renderAll();
 
-  for (const item of state.queue) {
+  const workers = Math.max(1, Math.min(8, Number(state.settings.llmParallelWorkers) || 1));
+
+  async function processQueueItem(item) {
     if (state.stopRequested) {
       if (item.status === "queued") {
         item.status = "stopped";
         item.reason = item.reason || "Queue stopped before processing.";
       }
-      continue;
+      return;
     }
     if (item.status === "skipped") {
-      continue;
+      return;
     }
     const card = state.cards.find((candidate) => candidate.id === item.cardId);
     if (!card) {
       item.status = "error";
       item.reason = "Card was no longer available.";
-      continue;
+      return;
     }
     while (item.attempts < item.maxAttempts) {
       item.attempts += 1;
@@ -81,12 +86,41 @@ export async function analyzeAllCards(options = {}) {
         item.reason = error.message;
       }
     }
-    renderAll();
+    renderQueue();
+    renderSummary();
+  }
+
+  let nextIndex = 0;
+  async function worker() {
+    while (true) {
+      if (state.stopRequested) return;
+      const myIndex = nextIndex;
+      nextIndex += 1;
+      if (myIndex >= state.queue.length) return;
+      const item = state.queue[myIndex];
+      await processQueueItem(item);
+    }
+  }
+
+  const workerPromises = [];
+  for (let i = 0; i < workers; i += 1) {
+    workerPromises.push(worker());
+  }
+  await Promise.all(workerPromises);
+
+  if (state.stopRequested) {
+    for (const item of state.queue) {
+      if (item.status === "queued") {
+        item.status = "stopped";
+        item.reason = item.reason || "Queue stopped before processing.";
+      }
+    }
   }
 
   state.queueActive = false;
   const stopped = state.stopRequested;
   state.stopRequested = false;
+  flushPersistedSave();
   renderAll();
   const counts = countQueueStatuses(state.queue);
   const summary = `done ${counts.done}, skipped ${counts.skipped}, failed ${counts.error}${stopped ? `, stopped ${counts.stopped}` : ""}`;
@@ -109,11 +143,15 @@ export function buildAnalysisQueue(mode) {
 }
 
 export async function analyzeCard(card) {
-  syncSettingsFromUi();
   card.analysis.status = "running";
   card.analysis.lastError = "";
   persistCard(card);
-  renderAll();
+  if (state.queueActive) {
+    renderQueue();
+    renderSummary();
+  } else {
+    renderAll();
+  }
   try {
     const content = buildCardPromptPayload(card);
     const response = await callLlm([

@@ -14,3 +14,7 @@ world-info/
 exports/
 samples/
 improvements.md
+
+# Node.js dev-time tooling (eslint only; no runtime dependency)
+node_modules/
+package-lock.json

@@ -1,7 +1,7 @@
 import { firstText, hashString, getFileExtension, normalizeTagLikeValue } from './format.js';
 import { assertLikelyPng, parsePngMetadata, extractCardJsonFromMetadata } from './png.js';
 import { state } from './state.js';
-import { savePersistedState } from './settings.js';
+import { schedulePersistedSave } from './settings.js';
 import { STOP_WORDS, CACHE_MAX_ENTRIES } from './constants.js';
 
 export async function parseCardFile(file, relativePath) {
@@ -202,7 +202,7 @@ export function persistCard(card) {
     lastUpdatedAt: new Date().toISOString()
   };
   pruneCacheIfNeeded();
-  savePersistedState();
+  schedulePersistedSave();
 }
 
 export function pruneCacheIfNeeded() {

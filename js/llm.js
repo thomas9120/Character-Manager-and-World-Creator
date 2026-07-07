@@ -5,14 +5,15 @@ import { setBusy, toast } from './dom.js';
 
 export async function callLlm(messages) {
   const controller = new AbortController();
-  state.activeAbortController = controller;
+  state.activeAbortControllers.add(controller);
   const timeout = window.setTimeout(() => controller.abort(), state.settings.llmTimeout);
   const endpoint = `${state.settings.llmBaseUrl}${normalizeEndpoint(state.settings.llmEndpoint)}`;
   try {
     const requestBody = {
       messages,
       temperature: state.settings.llmTemperature,
-      top_p: state.settings.llmTopP
+      top_p: state.settings.llmTopP,
+      max_tokens: state.settings.llmMaxTokens
     };
     if (state.settings.llmJsonMode !== false) {
       requestBody.response_format = { type: "json_object" };
@@ -45,9 +46,7 @@ export async function callLlm(messages) {
     throw error;
   } finally {
     window.clearTimeout(timeout);
-    if (state.activeAbortController === controller) {
-      state.activeAbortController = null;
-    }
+    state.activeAbortControllers.delete(controller);
   }
 }
 

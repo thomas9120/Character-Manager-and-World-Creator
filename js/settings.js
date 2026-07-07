@@ -1,4 +1,4 @@
-import { STORAGE_KEY, DEFAULT_ANALYSIS_PROMPT, DEFAULT_WORLD_PROMPT } from './constants.js';
+import { STORAGE_KEY, DEFAULT_ANALYSIS_PROMPT, DEFAULT_WORLD_PROMPT, DEFAULT_LLM_MAX_TOKENS, DEFAULT_LLM_PARALLEL_WORKERS } from './constants.js';
 import { safeJsonParse, clampNumber, normalizeEndpoint } from './format.js';
 import { state, els } from './state.js';
 import { toast } from './dom.js';
@@ -11,6 +11,8 @@ export function loadInitialSettings() {
     llmTemperature: Number(saved.settings?.llmTemperature ?? 0.2),
     llmTopP: Number(saved.settings?.llmTopP ?? 0.9),
     llmTimeout: Number(saved.settings?.llmTimeout ?? 60000),
+    llmMaxTokens: Number(saved.settings?.llmMaxTokens ?? DEFAULT_LLM_MAX_TOKENS),
+    llmParallelWorkers: clampNumber(saved.settings?.llmParallelWorkers, 1, 8, DEFAULT_LLM_PARALLEL_WORKERS),
     llmEndpoint: saved.settings?.llmEndpoint || "/v1/chat/completions",
     llmJsonMode: saved.settings?.llmJsonMode !== false,
     analysisPrompt: saved.settings?.analysisPrompt || DEFAULT_ANALYSIS_PROMPT,
@@ -30,6 +32,8 @@ export function savePersistedState() {
         llmTemperature: state.settings.llmTemperature,
         llmTopP: state.settings.llmTopP,
         llmTimeout: state.settings.llmTimeout,
+        llmMaxTokens: state.settings.llmMaxTokens,
+        llmParallelWorkers: state.settings.llmParallelWorkers,
         llmEndpoint: state.settings.llmEndpoint,
         llmJsonMode: state.settings.llmJsonMode,
         worldPrompt: state.settings.worldPrompt
@@ -55,6 +59,8 @@ export function loadSettingsIntoUi() {
   els.llmTemperature.value = String(state.settings.llmTemperature);
   els.llmTopP.value = String(state.settings.llmTopP);
   els.llmTimeout.value = String(state.settings.llmTimeout);
+  els.llmMaxTokens.value = String(state.settings.llmMaxTokens);
+  els.llmParallelWorkers.value = String(state.settings.llmParallelWorkers);
   els.llmEndpoint.value = state.settings.llmEndpoint;
   els.llmJsonMode.checked = state.settings.llmJsonMode !== false;
   els.analysisPrompt.value = state.settings.analysisPrompt;
@@ -69,6 +75,8 @@ export function syncSettingsFromUi() {
   state.settings.llmTemperature = clampNumber(els.llmTemperature.value, 0, 2, 0.2);
   state.settings.llmTopP = clampNumber(els.llmTopP.value, 0, 1, 0.9);
   state.settings.llmTimeout = Math.max(1000, Number(els.llmTimeout.value) || 60000);
+  state.settings.llmMaxTokens = clampNumber(els.llmMaxTokens.value, 64, 8192, DEFAULT_LLM_MAX_TOKENS);
+  state.settings.llmParallelWorkers = clampNumber(els.llmParallelWorkers.value, 1, 8, DEFAULT_LLM_PARALLEL_WORKERS);
   state.settings.llmEndpoint = normalizeEndpoint(els.llmEndpoint.value);
   state.settings.llmJsonMode = els.llmJsonMode.checked;
   state.settings.analysisPrompt = els.analysisPrompt.value.trim() || DEFAULT_ANALYSIS_PROMPT;
@@ -85,4 +93,25 @@ export function resetPromptDefaults() {
   els.analysisPrompt.value = DEFAULT_ANALYSIS_PROMPT;
   els.worldPrompt.value = DEFAULT_WORLD_PROMPT;
   saveSettingsFromUi();
+}
+
+let persistSaveTimer = null;
+const PERSIST_SAVE_DEBOUNCE_MS = 400;
+
+export function schedulePersistedSave(delayMs = PERSIST_SAVE_DEBOUNCE_MS) {
+  if (persistSaveTimer) {
+    return;
+  }
+  persistSaveTimer = window.setTimeout(() => {
+    persistSaveTimer = null;
+    savePersistedState();
+  }, delayMs);
+}
+
+export function flushPersistedSave() {
+  if (persistSaveTimer) {
+    window.clearTimeout(persistSaveTimer);
+    persistSaveTimer = null;
+    savePersistedState();
+  }
 }

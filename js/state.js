@@ -14,7 +14,7 @@ export const state = {
   queue: [],
   queueActive: false,
   stopRequested: false,
-  activeAbortController: null,
+  activeAbortControllers: new Set(),
   activeFilters: {
     search: "",
     sourceType: "",

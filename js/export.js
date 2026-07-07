@@ -92,6 +92,8 @@ export function exportLibrary() {
       llmTemperature: state.settings.llmTemperature,
       llmTopP: state.settings.llmTopP,
       llmTimeout: state.settings.llmTimeout,
+      llmMaxTokens: state.settings.llmMaxTokens,
+      llmParallelWorkers: state.settings.llmParallelWorkers,
       llmEndpoint: state.settings.llmEndpoint,
       llmJsonMode: state.settings.llmJsonMode,
       analysisPrompt: state.settings.analysisPrompt,
