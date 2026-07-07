@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' http: https:; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Character Card Manager</title>
   <style>
@@ -740,6 +741,7 @@
     const STORAGE_KEY = "character-card-manager-v1";
     const CACHE_MAX_ENTRIES = 250;
     const SEARCH_DEBOUNCE_MS = 150;
+    const WALK_MAX_DEPTH = 32;
     const STOP_WORDS = new Set([
       "the", "and", "that", "with", "have", "this", "from", "your", "they", "their", "about", "would", "there",
       "which", "when", "them", "then", "into", "while", "where", "what", "will", "were", "been", "being", "also",
@@ -1137,11 +1139,14 @@ Rules:
       }
     }
 
-    async function* walkDirectory(rootHandle, prefix = "") {
+    async function* walkDirectory(rootHandle, prefix = "", depth = 0) {
+      if (depth > WALK_MAX_DEPTH) {
+        return;
+      }
       for await (const [name, handle] of rootHandle.entries()) {
         const path = prefix ? `${prefix}/${name}` : name;
         if (handle.kind === "directory") {
-          yield* walkDirectory(handle, path);
+          yield* walkDirectory(handle, path, depth + 1);
         } else {
           yield { path, handle, kind: "file" };
         }
@@ -1515,7 +1520,12 @@ Rules:
     }
 
     function getFileExtension(name) {
-      return name.split(".").pop().toLowerCase();
+      const text = String(name);
+      const dot = text.lastIndexOf(".");
+      if (dot < 0 || dot === text.length - 1) {
+        return "";
+      }
+      return text.slice(dot + 1).toLowerCase();
     }
 
     function hashCardIdentity(path, name, sourceType, description) {
@@ -2452,8 +2462,8 @@ Rules:
       const controller = new AbortController();
       state.activeAbortController = controller;
       const timeout = window.setTimeout(() => controller.abort(), state.settings.llmTimeout);
+      const endpoint = `${state.settings.llmBaseUrl}${normalizeEndpoint(state.settings.llmEndpoint)}`;
       try {
-        const endpoint = `${state.settings.llmBaseUrl}${normalizeEndpoint(state.settings.llmEndpoint)}`;
         const response = await fetch(endpoint, {
           method: "POST",
           headers: {
@@ -2480,6 +2490,9 @@ Rules:
       } catch (error) {
         if (error.name === "AbortError") {
           throw new Error(state.stopRequested ? "Analysis stopped by user." : "Request timed out.");
+        }
+        if (error instanceof TypeError) {
+          throw new Error(`Could not reach the LLM server at ${endpoint}. Check that it is running and allows CORS from this page, then try again.`);
         }
         throw error;
       } finally {
