@@ -72,7 +72,8 @@ export function createErrorCard(relativePath, sourceType, error) {
 }
 
 export function normalizeCardRecord({ raw, sourceType, relativePath, fileName, pngMetadata = null }) {
-  const base = findLikelyCardPayload(raw);
+  const found = findLikelyCardPayload(raw);
+  const base = found && typeof found === "object" ? found : {};
   const data = base.data && typeof base.data === "object" ? base.data : base;
   const name = firstText([
     data.name,
@@ -252,12 +253,12 @@ export function findLikelyCardPayload(raw) {
 
 export function extractWorldBookEntries(base, data) {
   const candidates = [
-    data.character_book?.entries,
-    base.character_book?.entries,
-    data.worldbook?.entries,
-    data.lorebook?.entries,
-    base.worldbook?.entries,
-    base.lorebook?.entries
+    data?.character_book?.entries,
+    base?.character_book?.entries,
+    data?.worldbook?.entries,
+    data?.lorebook?.entries,
+    base?.worldbook?.entries,
+    base?.lorebook?.entries
   ];
   const entries = [];
   for (const candidate of candidates) {
