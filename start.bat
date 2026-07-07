@@ -11,7 +11,7 @@ if errorlevel 1 (
   echo Could not find a working Python 3 interpreter.
   if defined PYVERSION echo "python --version" reported: %PYVERSION%
   echo.
-  echo Install Python 3 from https://www.python.org/ (tick "Add Python to PATH"),
+  echo Install Python 3 from https://www.python.org/ ^(tick "Add Python to PATH"^),
   echo or run:  winget install Python.Python.3
   echo If a Microsoft Store window opened, that "python" is just a stub, not real Python.
   echo.
