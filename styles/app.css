@@ -188,6 +188,10 @@ body {
   padding: 0 16px 16px;
 }
 
+aside.panel .panel-body {
+  overflow: auto;
+}
+
 button,
 input,
 textarea,
@@ -278,11 +282,13 @@ button:disabled {
 .control-panel-section.active {
   display: grid;
   gap: 14px;
+  align-content: start;
 }
 
 .stack {
   display: grid;
   gap: 14px;
+  align-content: start;
   min-width: 0;
 }
 
